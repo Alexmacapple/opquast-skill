@@ -8,11 +8,11 @@
 
 | ID | Track | Status | Priority |
 |----|-------|--------|----------|
-| improve_v140_20260115 | Opquast Skill v1.4.0 Improvements | [~] | High |
+| improve_v140_20260115 | Opquast Skill v1.4.0 Improvements | [x] | High |
 
 ---
 
-## [~] Track: Opquast Skill v1.4.0 Improvements
+## [x] Track: Opquast Skill v1.4.0 Improvements (COMPLETED)
 
 *Link: [./conductor/tracks/improve_v140_20260115/](./conductor/tracks/improve_v140_20260115/)*
 
