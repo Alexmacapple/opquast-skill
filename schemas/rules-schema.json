@@ -105,6 +105,11 @@
         "static_verification_method": {
           "type": "string",
           "description": "Method for CSS-based static verification"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "major", "minor"],
+          "description": "Rule severity: critical (accessibility, security, privacy), major (SEO, basics, e-commerce), minor (other)"
         }
       }
     }

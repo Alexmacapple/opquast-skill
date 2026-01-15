@@ -1,0 +1,17 @@
+{
+  "challenges": [
+    "Response A claims 'Mobile sous-représentée avec 5 règles'. While `rules/opquast-v5.json` contains 5 tags, `SKILL.md` explicitly lists 'Mobile | 6'. The response should have noted this inconsistency between code and documentation.",
+    "Response A critiques the lack of severity metrics in the JSON. However, `site-profiles.json` implements contextual severity via `regles_critiques`, and `SKILL.md` hardcodes priority (Accessibilité > SEO). The critique overlooks this alternative architectural choice.",
+    "Response B claims the tool is 'techniquement solide pour un environnement CLI/LLM'. While true for the definition, it fails to note that `SKILL.md` instructs the LLM to 'Use WebFetch', but `WebFetch` cannot execute the JS required for many 'static' rules (e.g., computed styles for some 'static' checks or single-page app content), potentially lowering the 'static' coverage below the claimed 65%."
+  ],
+  "agreements": [
+    "Both responses correctly identify the exact rule count (245) and the significant limitation regarding 'requires_dom' rules (approx 35% non-verifiable).",
+    "Both responses rightly praise the 'site profiles' feature as a key differentiator for contextual intelligence."
+  ],
+  "peer_ratings": {
+    "A": 0.95,
+    "B": 0.85
+  },
+  "ungrounded_claims": [],
+  "confidence": 1.0
+}

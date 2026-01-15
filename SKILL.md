@@ -48,6 +48,17 @@ allowed-tools:
 
 Le rapport indiquera les règles non vérifiables avec la mention `[Nécessite analyse DOM]`.
 
+### Limitation WebFetch (SPAs et contenu dynamique)
+
+> **Attention** : `WebFetch` récupère uniquement le HTML source initial. Les sites utilisant du rendu côté client (React, Vue, Angular, SPAs) peuvent avoir un contenu incomplet.
+
+**Impact sur l'analyse** :
+- Les éléments injectés par JavaScript ne seront pas visibles
+- Les données chargées via API (fetch/XHR) ne seront pas analysées
+- Certaines règles "static" peuvent être faussement non-conformes si le contenu réel dépend du JS
+
+**Recommandation** : Pour les SPAs, demander à l'utilisateur de fournir le HTML rendu (via DevTools > Elements > Copy outer HTML) ou utiliser un outil headless externe.
+
 ## Ressources
 
 ### Règles structurées (JSON)
@@ -56,6 +67,15 @@ Le rapport indiquera les règles non vérifiables avec la mention `[Nécessite a
   - `objectives` : Liste des objectifs de la règle
   - `solution` : Solution recommandée
   - `verification` : Méthode de vérification
+  - `severity` : Niveau de sévérité (`critical`, `major`, `minor`)
+
+### Niveaux de sévérité
+
+| Niveau | Critères | Nombre |
+|--------|----------|--------|
+| `critical` | Accessibilité, Sécurité, Données personnelles | 156 |
+| `major` | SEO, Basics, E-Commerce | 44 |
+| `minor` | Autres rubriques | 45 |
 
 ### Profils de sites
 - `rules/site-profiles.json` : Détection et filtrage par type de site
