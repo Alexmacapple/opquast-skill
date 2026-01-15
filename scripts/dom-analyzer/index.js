@@ -11,7 +11,7 @@
  */
 
 import { createContext, navigateAndWait, closeBrowser } from './utils/browser.js';
-import { runAxeAnalysis } from './checks/axe-checks.js';
+import { runFullAnalysis } from './checks/axe-checks.js';
 import { getSupportedOpquastRules } from './utils/opquast-mapper.js';
 
 /**
@@ -87,8 +87,10 @@ function formatConsoleOutput(results, verbose) {
   }
 
   console.log(`\nStatistics:`);
-  console.log(`  - Rules checked: ${results.stats.rulesChecked}`);
-  console.log(`  - Violations: ${results.stats.violationsCount}`);
+  console.log(`  - Axe-core rules: ${results.stats.rulesChecked}`);
+  console.log(`  - Custom checks: ${results.stats.customChecksRun || 0}`);
+  console.log(`  - Total rules: ${results.stats.totalRulesChecked || results.stats.rulesChecked}`);
+  console.log(`  - Violations: ${results.stats.totalViolationsCount || results.stats.violationsCount}`);
   console.log(`  - Warnings: ${results.stats.warningsCount}`);
   console.log(`  - Passes: ${results.stats.passesCount}`);
 
@@ -139,9 +141,10 @@ async function main() {
 
     await navigateAndWait(page, options.url);
 
-    // Run analysis
-    const results = await runAxeAnalysis(page, {
-      includeWarnings: options.verbose
+    // Run analysis (axe-core + custom Playwright checks)
+    const results = await runFullAnalysis(page, {
+      includeWarnings: options.verbose,
+      includeCustomChecks: true
     });
 
     // Output results

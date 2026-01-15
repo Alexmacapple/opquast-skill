@@ -70,6 +70,144 @@ export const AXE_TO_OPQUAST = {
     title: 'La hiérarchie des titres est cohérente',
     severity: 'major',
     notes: 'Pas de saut de niveau'
+  },
+
+  // ========== Phase 4 additions (17 new mappings) ==========
+
+  // Buttons - verified axe-core rule
+  'button-name': {
+    opquastId: 98,
+    title: 'Les boutons ont un nom accessible',
+    severity: 'critical',
+    notes: 'Texte visible ou aria-label'
+  },
+
+  // Frames - verified axe-core rule
+  'frame-title': {
+    opquastId: 164,
+    title: 'Les frames et iframes ont un titre',
+    severity: 'major',
+    notes: 'Attribut title sur frame/iframe'
+  },
+
+  // ARIA required attributes - verified axe-core rule
+  'aria-required-attr': {
+    opquastId: 69,
+    title: 'Les attributs ARIA requis sont présents',
+    severity: 'critical',
+    notes: 'Attributs ARIA obligatoires selon le rôle'
+  },
+
+  // Input image alt - verified axe-core rule
+  'input-image-alt': {
+    opquastId: 118,
+    title: 'Les boutons image ont une alternative textuelle',
+    severity: 'critical',
+    notes: 'Attribut alt sur input type="image"'
+  },
+
+  // Empty headings - verified axe-core rule
+  'empty-heading': {
+    opquastId: 234,
+    title: 'Les titres ne sont pas vides',
+    severity: 'major',
+    notes: 'Balises h1-h6 avec contenu'
+  },
+
+  // Page has H1 - verified axe-core rule
+  'page-has-heading-one': {
+    opquastId: 234,
+    title: 'La page contient un titre de niveau 1',
+    severity: 'major',
+    notes: 'Au moins un h1 par page'
+  },
+
+  // Table cells have headers - verified axe-core rule
+  'td-has-header': {
+    opquastId: 242,
+    title: 'Les cellules de données sont reliées à leurs entêtes',
+    severity: 'major',
+    notes: 'Association td/th correcte'
+  },
+
+  // Table headers have data cells - verified axe-core rule
+  'th-has-data-cells': {
+    opquastId: 243,
+    title: 'Les entêtes de tableau ont des cellules associées',
+    severity: 'major',
+    notes: 'th avec scope ou headers'
+  },
+
+  // Object alt - verified axe-core rule
+  'object-alt': {
+    opquastId: 120,
+    title: 'Les objets inclus ont une alternative',
+    severity: 'critical',
+    notes: 'Contenu alternatif pour object/embed'
+  },
+
+  // Area alt - verified axe-core rule
+  'area-alt': {
+    opquastId: 117,
+    title: 'Les zones cliquables ont une alternative',
+    severity: 'critical',
+    notes: 'Attribut alt sur area'
+  },
+
+  // SVG image alt - verified axe-core rule
+  'svg-img-alt': {
+    opquastId: 118,
+    title: 'Les images SVG ont une alternative',
+    severity: 'critical',
+    notes: 'title ou aria-label sur SVG'
+  },
+
+  // Select name - verified axe-core rule
+  'select-name': {
+    opquastId: 96,
+    title: 'Les listes déroulantes ont un label',
+    severity: 'critical',
+    notes: 'Label associé au select'
+  },
+
+  // Valid lang attribute - verified axe-core rule
+  'html-lang-valid': {
+    opquastId: 130,
+    title: 'L\'attribut lang est valide',
+    severity: 'major',
+    notes: 'Code langue conforme BCP 47'
+  },
+
+  // Meta viewport - verified axe-core rule
+  'meta-viewport': {
+    opquastId: 193,
+    title: 'Le viewport ne bloque pas le zoom',
+    severity: 'critical',
+    notes: 'user-scalable=yes, maximum-scale >= 2'
+  },
+
+  // Duplicate ID - verified axe-core rule
+  'duplicate-id': {
+    opquastId: 236,
+    title: 'Chaque identifiant HTML est unique',
+    severity: 'major',
+    notes: 'Pas de doublons d\'id'
+  },
+
+  // List structure - verified axe-core rule
+  'list': {
+    opquastId: 235,
+    title: 'Les listes sont correctement balisées',
+    severity: 'minor',
+    notes: 'ul/ol contient uniquement li'
+  },
+
+  // Tabindex - verified axe-core rule
+  'tabindex': {
+    opquastId: 167,
+    title: 'Les tabindex positifs ne sont pas utilisés',
+    severity: 'major',
+    notes: 'tabindex > 0 perturbe l\'ordre naturel'
   }
 };
 

@@ -1,10 +1,12 @@
 /**
  * axe-core based checks for Opquast rules
  * Uses @axe-core/playwright for accessibility testing
+ * Integrates custom Playwright checks for rules not covered by axe-core
  */
 
 import AxeBuilder from '@axe-core/playwright';
 import { mapAxeResults, getAxeRuleIds, AXE_TO_OPQUAST } from '../utils/opquast-mapper.js';
+import { runCustomChecks } from './custom-checks.js';
 
 /**
  * Run axe-core analysis on a page
@@ -125,8 +127,48 @@ export async function checkImageAlt(page) {
   return checkOpquastRule(page, 111);
 }
 
+/**
+ * Run full analysis combining axe-core and custom Playwright checks
+ * @param {Page} page - Playwright page object
+ * @param {Object} options - Analysis options
+ * @returns {Promise<Object>} - Combined analysis results
+ */
+export async function runFullAnalysis(page, options = {}) {
+  const { includeCustomChecks = true } = options;
+
+  // 1. Run axe-core analysis (25 rules mapped)
+  const axeResults = await runAxeAnalysis(page, options);
+
+  if (!includeCustomChecks) {
+    return axeResults;
+  }
+
+  // 2. Run custom Playwright checks (8 rules)
+  let customViolations = [];
+  try {
+    customViolations = await runCustomChecks(page);
+  } catch (error) {
+    console.error('Custom checks error:', error.message);
+  }
+
+  // 3. Merge results
+  return {
+    ...axeResults,
+    violations: [...axeResults.violations, ...customViolations],
+    customChecks: customViolations,
+    stats: {
+      ...axeResults.stats,
+      customChecksRun: 8,
+      customViolationsCount: customViolations.length,
+      totalRulesChecked: axeResults.stats.rulesChecked + 8,
+      totalViolationsCount: axeResults.stats.violationsCount + customViolations.length
+    }
+  };
+}
+
 export default {
   runAxeAnalysis,
+  runFullAnalysis,
   checkOpquastRule,
   checkContrast,
   checkLinkNames,
