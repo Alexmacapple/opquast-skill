@@ -1,9 +1,10 @@
 # Phase 3 - Analyse DOM Dynamique
 
-> Extension optionnelle pour vérifier les 52 règles nécessitant un navigateur headless
+> Extension optionnelle pour vérifier les 33 règles nécessitant un navigateur headless
 
 **Date** : 2026-01-15
-**Statut** : Planifié (non implémenté)
+**Statut** : En cours (Track: phase3_dom_20260115)
+**Council Review** : 2026-01-15 - Approuvé avec modifications
 
 ---
 
@@ -315,24 +316,58 @@ Certaines règles peuvent être partiellement vérifiées via CSS statique :
 
 ## Décision
 
-**Recommandation** : Implémenter en Option A (script standalone) pour :
-- Indépendance du skill principal
-- Facilité de maintenance
-- Exécution optionnelle
+**Council Review (2026-01-15)** : Approuvé avec modifications
 
-**Priorité** : Basse (le skill couvre déjà 60% des règles)
+### Architecture validée : Playwright + axe-core
+
+| Décision | Justification Council |
+|----------|----------------------|
+| Playwright (pas Puppeteer) | Multi-browser, auto-wait, API accessibility |
+| axe-core intégré | Évite réimplémentation WCAG risquée |
+| Approche hybride | axe pour checks techniques, custom pour focus |
+
+### Changements vs plan initial
+
+```diff
+- Puppeteer
++ Playwright (@playwright/test)
+
+- wcag.js manuel (calculs contraste)
++ @axe-core/playwright (engine validé)
+
+- Tous checks custom
++ Hybride: axe-core + custom focus checks
+```
+
+**Priorité** : Haute (valeur ajoutée validée par Council)
 
 ---
 
-## Prochaines étapes si implémentation
+## Prochaines étapes
 
-1. [ ] Créer `scripts/dom-analyzer/`
-2. [ ] Implémenter checks prioritaires (182, 165, 186)
-3. [ ] Intégrer avec SKILL.md
-4. [ ] Ajouter commande `--dom`
-5. [ ] Tester sur sites réels
-6. [ ] Documenter
+**Track actif** : `conductor/tracks/phase3_dom_20260115/`
+
+### Phase 1: Setup Infrastructure
+- [ ] Créer `scripts/dom-analyzer/` structure
+- [ ] Setup package.json (Playwright + axe-core)
+- [ ] Créer `browser.js` (lifecycle)
+- [ ] Créer `opquast-mapper.js` (axe → Opquast)
+
+### Phase 2: Checks axe-core
+- [ ] Règle 182: Contraste (`color-contrast`)
+- [ ] Règle 186: Taille cliquable (`target-size`)
+- [ ] Règles 139-143: Liens
+- [ ] Règles 237-238: user-select, contextmenu
+
+### Phase 3: Checks Custom Playwright
+- [ ] Règles 165-167: Focus clavier (state machine)
+- [ ] Règles 124-128: Médias/animations
+
+### Phase 4-5: Intégration & Tests
+- [ ] Flag `--dom` dans SKILL.md
+- [ ] Tests sur 5 sites réels
+- [ ] Documentation
 
 ---
 
-*Document généré le 2026-01-15 - Skill Opquast v1.3*
+*Document mis à jour le 2026-01-15 - Council reviewed - Skill Opquast v1.4.0*

@@ -1,0 +1,32 @@
+{
+  "name": "opquast-dom-analyzer",
+  "version": "1.0.0",
+  "description": "DOM analyzer for Opquast rules requiring headless browser (Playwright + axe-core)",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "opquast-dom": "./index.js"
+  },
+  "scripts": {
+    "analyze": "node index.js",
+    "test": "node --test tests/",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "keywords": [
+    "opquast",
+    "accessibility",
+    "wcag",
+    "playwright",
+    "axe-core",
+    "audit"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@axe-core/playwright": "^4.8.0",
+    "playwright": "^1.41.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
