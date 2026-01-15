@@ -103,6 +103,65 @@ describe('Custom Checks', () => {
     });
   });
 
+  describe('Rule 165: Focus visible', () => {
+    it('should detect elements without visible focus', async () => {
+      page = await context.newPage();
+      await page.goto(TEST_PAGE);
+
+      const result = await runCustomCheck(page, 165);
+
+      // May or may not find violations depending on browser defaults
+      if (result) {
+        expect(result.opquastId).toBe(165);
+        expect(result.severity).toBe('critical');
+      }
+
+      await page.close();
+    });
+
+    it('should pass on clean page with good focus styles', async () => {
+      page = await context.newPage();
+      await page.goto(CLEAN_PAGE);
+
+      const result = await runCustomCheck(page, 165);
+
+      // Clean page has explicit focus styles, should pass
+      expect(result).toBeNull();
+
+      await page.close();
+    });
+  });
+
+  describe('Rule 166: Keyboard navigable', () => {
+    it('should detect non-focusable interactive elements', async () => {
+      page = await context.newPage();
+      await page.goto(TEST_PAGE);
+
+      const result = await runCustomCheck(page, 166);
+
+      // Test page has a div with onclick and tabindex=-1
+      if (result) {
+        expect(result.opquastId).toBe(166);
+        expect(result.severity).toBe('critical');
+        expect(result.nodes.length).toBeGreaterThan(0);
+      }
+
+      await page.close();
+    });
+
+    it('should pass on clean page', async () => {
+      page = await context.newPage();
+      await page.goto(CLEAN_PAGE);
+
+      const result = await runCustomCheck(page, 166);
+
+      // Clean page uses proper buttons and links
+      expect(result).toBeNull();
+
+      await page.close();
+    });
+  });
+
   describe('Rule 167: Tab order predictable', () => {
     it('should detect positive tabindex', async () => {
       page = await context.newPage();

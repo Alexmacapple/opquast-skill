@@ -200,15 +200,8 @@ export const AXE_TO_OPQUAST = {
     title: 'Les listes sont correctement balisées',
     severity: 'minor',
     notes: 'ul/ol contient uniquement li'
-  },
-
-  // Tabindex - verified axe-core rule
-  'tabindex': {
-    opquastId: 167,
-    title: 'Les tabindex positifs ne sont pas utilisés',
-    severity: 'major',
-    notes: 'tabindex > 0 perturbe l\'ordre naturel'
   }
+  // Note: tabindex (167) removed - handled by CUSTOM_CHECKS for more precise detection
 };
 
 /**
