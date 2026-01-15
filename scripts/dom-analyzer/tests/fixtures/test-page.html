@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Page - Opquast Custom Checks</title>
+  <style>
+    /* Rule 139: Underline on non-link (violation) */
+    .underlined-text {
+      text-decoration: underline;
+    }
+
+    /* Rule 191: Justified text (violation) */
+    .justified-text {
+      text-align: justify;
+    }
+
+    /* Rule 237: User-select none (violation) */
+    .no-select {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Rule 165: Focus visible (good) */
+    .focusable:focus {
+      outline: 2px solid blue;
+    }
+
+    /* Rule 165: Focus hidden (violation) */
+    .no-focus:focus {
+      outline: none;
+    }
+
+    /* Rule 186: Small target (violation) */
+    .small-button {
+      width: 30px;
+      height: 20px;
+      display: inline-block;
+    }
+
+    /* Rule 186: Good target size */
+    .good-button {
+      width: 48px;
+      height: 48px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Test Page for Opquast Custom Checks</h1>
+
+  <!-- Rule 139: Underline reserved for links -->
+  <section id="test-139">
+    <h2>Rule 139: Underline</h2>
+    <p class="underlined-text">This text has underline but is not a link (violation)</p>
+    <a href="#">This link has underline (OK)</a>
+    <p>Normal paragraph without underline (OK)</p>
+  </section>
+
+  <!-- Rule 191: Text not justified -->
+  <section id="test-191">
+    <h2>Rule 191: Justified Text</h2>
+    <p class="justified-text">This paragraph has text-align: justify which can cause readability issues for some users. This is considered a violation of Opquast rule 191.</p>
+    <p>Normal paragraph with default text-align (OK)</p>
+  </section>
+
+  <!-- Rule 237: Copy not blocked -->
+  <section id="test-237">
+    <h2>Rule 237: User Select</h2>
+    <div class="no-select">This content cannot be selected (violation)</div>
+    <div>Normal selectable content (OK)</div>
+  </section>
+
+  <!-- Rule 238: Context menu not blocked -->
+  <section id="test-238">
+    <h2>Rule 238: Context Menu</h2>
+    <div oncontextmenu="return false;">Right-click blocked here (violation)</div>
+    <div>Normal right-click behavior (OK)</div>
+  </section>
+
+  <!-- Rule 165: Focus visible -->
+  <section id="test-165">
+    <h2>Rule 165: Focus Visible</h2>
+    <button class="focusable">Button with visible focus (OK)</button>
+    <button class="no-focus">Button without visible focus (violation)</button>
+    <a href="#" class="focusable">Link with visible focus (OK)</a>
+  </section>
+
+  <!-- Rule 166: Keyboard navigable -->
+  <section id="test-166">
+    <h2>Rule 166: Keyboard Navigation</h2>
+    <button>Normal button (OK)</button>
+    <div onclick="alert('click')" tabindex="-1">Clickable div not focusable (violation)</div>
+    <a href="#">Normal link (OK)</a>
+  </section>
+
+  <!-- Rule 167: Tab order -->
+  <section id="test-167">
+    <h2>Rule 167: Tab Order</h2>
+    <input type="text" tabindex="5" placeholder="tabindex=5 (violation)">
+    <input type="text" tabindex="0" placeholder="tabindex=0 (OK)">
+    <input type="text" placeholder="no tabindex (OK)">
+  </section>
+
+  <!-- Rule 186: Target size -->
+  <section id="test-186">
+    <h2>Rule 186: Target Size</h2>
+    <button class="small-button">S</button> <!-- violation: 30x20 < 44x44 -->
+    <button class="good-button">OK</button> <!-- OK: 48x48 >= 44x44 -->
+    <a href="#" class="small-button">X</a> <!-- violation -->
+  </section>
+
+</body>
+</html>
