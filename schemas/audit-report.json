@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opquast-audit-report",
+  "title": "Rapport d'Audit Opquast",
+  "description": "Schéma JSON pour les rapports d'audit Opquast V5",
+  "type": "object",
+  "required": ["metadata", "summary", "results"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["url", "date", "version"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL analysée"
+        },
+        "site_name": {
+          "type": "string",
+          "description": "Nom du site"
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date de l'audit"
+        },
+        "version": {
+          "type": "string",
+          "const": "5.0",
+          "description": "Version Opquast"
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["full", "theme", "rubrique"],
+              "description": "Type de scope"
+            },
+            "value": {
+              "type": "string",
+              "description": "Valeur du scope (ex: accessibilite, formulaires)"
+            }
+          }
+        },
+        "pages_analyzed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Liste des pages analysées"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_rules", "conformes", "non_conformes", "non_applicables", "non_verifiables"],
+      "properties": {
+        "total_rules": {
+          "type": "integer",
+          "description": "Nombre total de règles évaluées"
+        },
+        "conformes": {
+          "type": "integer",
+          "description": "Règles respectées"
+        },
+        "non_conformes": {
+          "type": "integer",
+          "description": "Règles non respectées"
+        },
+        "non_applicables": {
+          "type": "integer",
+          "description": "Règles non applicables au contexte"
+        },
+        "non_verifiables": {
+          "type": "integer",
+          "description": "Règles nécessitant analyse DOM"
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Score de conformité en pourcentage"
+        },
+        "coverage": {
+          "type": "object",
+          "properties": {
+            "static": {
+              "type": "integer",
+              "description": "Règles statiques vérifiées"
+            },
+            "requires_dom": {
+              "type": "integer",
+              "description": "Règles DOM non vérifiables"
+            }
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "object",
+      "properties": {
+        "non_conformes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_conformite"
+          },
+          "description": "Liste des non-conformités"
+        },
+        "non_verifiables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/regle_reference"
+          },
+          "description": "Règles nécessitant analyse DOM"
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "priority": {
+            "type": "string",
+            "enum": ["critique", "important", "mineur"],
+            "description": "Niveau de priorité"
+          },
+          "rule_id": {
+            "type": "integer"
+          },
+          "action": {
+            "type": "string",
+            "description": "Action recommandée"
+          },
+          "impact": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["Accessibilité", "SEO", "Sécurité", "Privacy", "Écoconception", "UX"]
+            }
+          }
+        }
+      },
+      "description": "Recommandations prioritaires"
+    }
+  },
+  "$defs": {
+    "non_conformite": {
+      "type": "object",
+      "required": ["rule_id", "title", "rubrique"],
+      "properties": {
+        "rule_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 245,
+          "description": "Numéro de la règle"
+        },
+        "title": {
+          "type": "string",
+          "description": "Titre de la règle"
+        },
+        "rubrique": {
+          "type": "string",
+          "description": "Rubrique Opquast"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags transversaux"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Pages concernées"
+        },
+        "details": {
+          "type": "string",
+          "description": "Détails de la non-conformité"
+        },
+        "solution": {
+          "type": "string",
+          "description": "Solution recommandée"
+        },
+        "reference_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Lien vers la règle Opquast"
+        }
+      }
+    },
+    "regle_reference": {
+      "type": "object",
+      "required": ["rule_id", "title", "reason"],
+      "properties": {
+        "rule_id": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["requires_dom", "requires_interaction", "content_quality"],
+          "description": "Raison de non-vérifiabilité"
+        }
+      }
+    }
+  }
+}
