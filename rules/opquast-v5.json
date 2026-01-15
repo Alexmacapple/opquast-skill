@@ -10,10 +10,10 @@
     "content_quality": "Évaluation qualitative du contenu éditorial"
   },
   "coverage": {
-    "static": 147,
-    "requires_dom": 52,
-    "requires_interaction": 31,
-    "content_quality": 15
+    "static": 160,
+    "requires_dom": 33,
+    "requires_interaction": 44,
+    "content_quality": 8
   },
   "rules": [
     {
@@ -2132,17 +2132,18 @@
     {
       "id": 139,
       "title": "Le soulignement est réservé aux liens",
-      "category": "requires_dom",
+      "category": "static",
       "rubrique": "Liens",
       "tags": [
         "Accessibilité"
       ],
       "objectives": [
         "Éviter les clics inutiles sur des contenus soulignés perçus comme des hyperliens.",
-        "Faciliter l’identification des liens."
+        "Faciliter l'identification des liens."
       ],
       "solution": "Ne pas utiliser le soulignement pour des textes simples ou des éléments qui ne constituent pas des liens.\nEn savoir plus: `text-decoration` sur MDN - `border` sur MDN",
-      "verification": "Dans chaque page contenant des contenus soulignés : \n- Identifier les textes soulignés dans le site ;\n- Contrôler la nature de ces contenus pour vérifier s'il s'agit effectivement d'hyperliens."
+      "verification": "Dans chaque page contenant des contenus soulignés : \n- Identifier les textes soulignés dans le site ;\n- Contrôler la nature de ces contenus pour vérifier s'il s'agit effectivement d'hyperliens.",
+      "static_verification_method": "Rechercher dans CSS/style: text-decoration:underline sur sélecteurs non-liens (exclure a, a:hover, a:visited, a:focus)"
     },
     {
       "id": 140,
@@ -2958,17 +2959,18 @@
     {
       "id": 191,
       "title": "Les styles ne justifient pas le texte",
-      "category": "requires_dom",
+      "category": "static",
       "rubrique": "Présentation",
       "tags": [
         "Accessibilité"
       ],
       "objectives": [
-        "Faciliter la lecture à l’écran, notamment pour les personnes dyslexiques.",
-        "Améliorer l’accessibilité des contenus aux personnes handicapées."
+        "Faciliter la lecture à l'écran, notamment pour les personnes dyslexiques.",
+        "Améliorer l'accessibilité des contenus aux personnes handicapées."
       ],
       "solution": "Ne pas utiliser la propriété CSS text-align avec la valeur justify, ou tout autre équivalent.\nEn savoir plus: `text-align` sur MDN",
-      "verification": "Vérifier dans le code CSS l’absence de règles text-align : justify.Vérifier dans le code HTML l’absence d’attributs HTML align=\"justify\"."
+      "verification": "Vérifier dans le code CSS l'absence de règles text-align : justify.Vérifier dans le code HTML l'absence d'attributs HTML align=\"justify\".",
+      "static_verification_method": "Rechercher text-align:justify ou text-align: justify dans CSS inline et balises <style>"
     },
     {
       "id": 192,
@@ -3617,7 +3619,7 @@
     {
       "id": 237,
       "title": "La copie du contenu n'est pas bloquée",
-      "category": "requires_dom",
+      "category": "static",
       "rubrique": "Structure et code",
       "tags": [
         "Accessibilité"
@@ -3627,7 +3629,8 @@
         "Laisser aux utilisateurs la maîtrise de leur navigateur."
       ],
       "solution": "Ne pas utiliser JavaScript ou CSS, ou toute autre technique, pour bloquer la fonctionnalité \"copier\" du navigateur dans les pages du site.",
-      "verification": "Vérifier pour chaque page du site que la copie du contenu est possible à l'aide de la fonctionnalité courante du navigateur."
+      "verification": "Vérifier pour chaque page du site que la copie du contenu est possible à l'aide de la fonctionnalité courante du navigateur.",
+      "static_verification_method": "Rechercher user-select:none dans CSS inline et balises <style>"
     },
     {
       "id": 238,
