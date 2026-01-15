@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opquast-skill/schemas/profiles-schema.json",
+  "title": "Site Profiles Schema",
+  "description": "Schema for site-profiles.json",
+  "type": "object",
+  "required": ["version", "profiles"],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "required": ["name", "detection", "regles_critiques", "regles_exclues", "pages_a_analyser"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "detection": {
+          "type": "object",
+          "properties": {
+            "keywords": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "elements": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "urls": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "meta": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "rubriques_prioritaires": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "regles_critiques": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 245
+          },
+          "description": "Rule IDs that are critical for this profile"
+        },
+        "regles_exclues": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 245
+          },
+          "description": "Rule IDs not applicable for this profile"
+        },
+        "pages_a_analyser": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

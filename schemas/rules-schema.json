@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opquast-skill/schemas/rules-schema.json",
+  "title": "Opquast Rules Schema",
+  "description": "Schema for opquast-v5.json rules file",
+  "type": "object",
+  "required": ["version", "name", "total_rules", "categories", "coverage", "rules"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "total_rules": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generated": {
+      "type": "string",
+      "format": "date"
+    },
+    "categories": {
+      "type": "object",
+      "required": ["static", "requires_dom", "requires_interaction", "content_quality"],
+      "properties": {
+        "static": { "type": "string" },
+        "requires_dom": { "type": "string" },
+        "requires_interaction": { "type": "string" },
+        "content_quality": { "type": "string" }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["static", "requires_dom", "requires_interaction", "content_quality"],
+      "properties": {
+        "static": { "type": "integer", "minimum": 0 },
+        "requires_dom": { "type": "integer", "minimum": 0 },
+        "requires_interaction": { "type": "integer", "minimum": 0 },
+        "content_quality": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required": ["id", "title", "category", "rubrique"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 245
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "enum": ["static", "requires_dom", "requires_interaction", "content_quality"]
+        },
+        "rubrique": {
+          "type": "string",
+          "enum": [
+            "Contenus",
+            "Données personnelles",
+            "E-Commerce",
+            "Formulaires",
+            "Identification et contact",
+            "Images et médias",
+            "Internationalisation",
+            "Liens",
+            "Navigation",
+            "Newsletter",
+            "Présentation",
+            "Sécurité",
+            "Serveur et performances",
+            "Structure et code"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["Accessibilité", "Basics", "Écoconception", "Mobile", "Privacy", "SEO"]
+          }
+        },
+        "objectives": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "solution": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        },
+        "static_verification_method": {
+          "type": "string",
+          "description": "Method for CSS-based static verification"
+        }
+      }
+    }
+  }
+}
