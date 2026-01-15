@@ -32,10 +32,10 @@ allowed-tools:
 
 | Catégorie | Règles | Description |
 |-----------|--------|-------------|
-| `static` | 147 (60%) | Vérifiable par analyse du code source HTML |
-| `requires_dom` | 52 (21%) | Nécessite DOM rendu et/ou CSS calculé |
-| `requires_interaction` | 31 (13%) | Nécessite interaction utilisateur ou test fonctionnel |
-| `content_quality` | 15 (6%) | Évaluation qualitative du contenu éditorial |
+| `static` | 160 (65%) | Vérifiable par analyse du code source HTML |
+| `requires_dom` | 33 (14%) | Nécessite DOM rendu et/ou CSS calculé |
+| `requires_interaction` | 44 (18%) | Nécessite interaction utilisateur ou test fonctionnel |
+| `content_quality` | 8 (3%) | Évaluation qualitative du contenu éditorial |
 
 ### Règles NON vérifiables sans navigateur headless
 
@@ -187,21 +187,37 @@ Par défaut :
 
 ---
 
-## [Rubrique]
+## Quick Wins
 
-Toutes les règles sont respectées sauf :
+> Corrections rapides à fort impact
 
-### Règle [N] : [Titre]
+| Règle | Problème | Solution | Impact |
+|-------|----------|----------|--------|
+| 191 | Texte justifié détecté | Supprimer `text-align: justify` | Accessibilité |
+| 237 | Copie bloquée | Retirer `user-select: none` | Accessibilité |
+| 139 | Soulignement sur non-liens | Utiliser autre style que underline | Accessibilité |
 
-[Description]
+---
 
-**Pages non conformes :**
-- [URL 1]
-- [URL 2]
+## Non-conformités par priorité
 
-**Recommandation :** [Action]
+### Accessibilité (priorité haute)
 
+#### Règle [N] : [Titre]
+**Impact** : Accessibilité
+**Pages** : [URL 1], [URL 2]
+**Solution** : [Extrait du champ solution de la règle]
 [Voir la règle](https://checklists.opquast.com/fr/qualite-numerique/[N])
+
+### SEO (priorité moyenne)
+
+#### Règle [N] : [Titre]
+...
+
+### UX/Performance (priorité standard)
+
+#### Règle [N] : [Titre]
+...
 
 ---
 
@@ -210,12 +226,23 @@ Toutes les règles sont respectées sauf :
 Les règles suivantes nécessitent une analyse DOM/CSS :
 - Règle 182 : Contraste [Nécessite analyse DOM]
 - Règle 165 : Focus clavier [Nécessite analyse DOM]
-- ...
 ```
+
+### Ordre de priorité
+1. **Accessibilité** : Impact utilisateurs en situation de handicap
+2. **SEO** : Impact référencement et découvrabilité
+3. **UX/Performance** : Impact expérience utilisateur générale
+
+### Section Quick Wins
+Afficher les règles CSS-détectables avec correction simple :
+- Règles avec `static_verification_method` dans le JSON
+- Solutions en une ligne (ex: "Supprimer text-align: justify")
+- Toujours en premier pour action immédiate
 
 ### Règles d'affichage
 - NE PAS afficher les règles conformes
 - NE PAS afficher les règles non applicables
+- Grouper par tag principal (Accessibilité > SEO > autres)
 - Afficher la section "Règles non vérifiables" avec les règles `requires_dom`
 - Si tout OK : "Toutes les règles sont respectées."
 
