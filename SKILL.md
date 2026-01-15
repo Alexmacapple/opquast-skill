@@ -10,6 +10,7 @@ description: |
   - Par thématique: "analyse accessibilité", "audit SEO", "check sécurité"
   - Par rubrique: "vérifie les formulaires", "analyse e-commerce", "audit navigation"
   - Consulter règle: "règle opquast 42", "montre la règle 125", "détail règle"
+  - Explorer règles: "liste règles opquast", "cherche règles images", "règles critiques"
 allowed-tools:
   - "WebFetch(*)"
   - "Read(**/*)"
@@ -117,6 +118,8 @@ Le rapport indiquera les règles non vérifiables avec la mention `[Nécessite a
 
 ## Commandes
 
+### Analyse
+
 | Commande | Action |
 |----------|--------|
 | `/opquast <URL>` | Analyse complète |
@@ -124,9 +127,81 @@ Le rapport indiquera les règles non vérifiables avec la mention `[Nécessite a
 | `/opquast <URL> --rubrique formulaires` | Par rubrique |
 | `/opquast --regle 42` | Consulter une règle |
 
+### Explorateur de règles
+
+| Commande | Action |
+|----------|--------|
+| `/opquast --list` | Liste paginée des 245 règles |
+| `/opquast --list --page 2` | Page 2 (règles 21-40) |
+| `/opquast --search <mot>` | Recherche par mot-clé |
+| `/opquast --theme <theme>` | Règles d'une thématique |
+| `/opquast --rubrique <rubrique>` | Règles d'une rubrique |
+| `/opquast --severity critical` | Règles par sévérité |
+
 **Thématiques** : `accessibilite`, `seo`, `securite`, `privacy`, `ecoconception`, `mobile`, `basics`
 
 **Rubriques** : `contenus`, `donnees-personnelles`, `e-commerce`, `formulaires`, `identification`, `images`, `internationalisation`, `liens`, `navigation`, `newsletter`, `presentation`, `securite`, `serveur`, `structure`
+
+**Sévérités** : `critical` (156), `major` (44), `minor` (45)
+
+### Exemples explorateur
+
+#### Liste paginée (`--list`)
+```
+/opquast --list
+
+# Règles Opquast V5 (1-20 sur 245)
+
+| ID | Titre | Rubrique | Sévérité |
+|----|-------|----------|----------|
+| 1 | Il est possible de connaître les nouveaux contenus | Contenus | critical |
+| 2 | Les droits de copie sont disponibles | Contenus | minor |
+| 3 | Métadonnée description présente | Contenus | major |
+| ... | ... | ... | ... |
+
+Page 1/13 — `/opquast --list --page 2` pour la suite
+```
+
+#### Recherche (`--search`)
+```
+/opquast --search formulaire
+
+# 30 règles contenant "formulaire"
+
+| ID | Titre | Sévérité |
+|----|-------|----------|
+| 67 | Chaque champ est associé à une étiquette | critical |
+| 68 | Les étiquettes sont visuellement proches | major |
+| 69 | Les champs obligatoires sont indiqués | critical |
+| ... | ... | ... |
+```
+
+#### Par thématique (`--theme`)
+```
+/opquast --theme accessibilite
+
+# 128 règles Accessibilité
+
+| ID | Titre | Rubrique | Sévérité |
+|----|-------|----------|----------|
+| 4 | Dates en format explicite | Contenus | critical |
+| 5 | Abréviations expliquées | Contenus | critical |
+| ... | ... | ... | ... |
+```
+
+#### Par rubrique (`--rubrique`)
+```
+/opquast --rubrique e-commerce
+
+# 39 règles E-Commerce
+
+| ID | Titre | Sévérité |
+|----|-------|----------|
+| 15 | Prix clairement indiqués | critical |
+| 16 | Devise mentionnée | critical |
+| 17 | Disponibilité indiquée | major |
+| ... | ... | ... |
+```
 
 ## Intelligence contextuelle
 
