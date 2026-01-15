@@ -1,0 +1,15 @@
+{
+  "track_id": "improve_v140_20260115",
+  "title": "Opquast Skill v1.4.0 Improvements",
+  "type": "enhancement",
+  "status": "in_progress",
+  "created": "2026-01-15T18:50:00Z",
+  "updated": "2026-01-15T18:50:00Z",
+  "description": "3 améliorations: reclassification règles CSS, export markdown amélioré, validation JSON",
+  "phases": [
+    {"id": 1, "name": "Reclassification règles CSS", "status": "pending"},
+    {"id": 2, "name": "Export Markdown amélioré", "status": "pending"},
+    {"id": 3, "name": "Script de validation", "status": "pending"},
+    {"id": 4, "name": "Release v1.4.0", "status": "pending"}
+  ]
+}
