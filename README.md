@@ -2,7 +2,7 @@
 
 > Analyseur de qualité web basé sur le référentiel Opquast V5 (245 règles)
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/your-username/opquast-skill)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/Alexmacapple/opquast-skill)
 [![Opquast](https://img.shields.io/badge/Opquast-V5-orange.svg)](https://www.opquast.com/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Skill-purple.svg)](https://claude.ai/)
 
@@ -14,20 +14,22 @@ Ce skill permet d'auditer des sites web selon le référentiel [Opquast V5](http
 
 ### Fonctionnalités
 
-- Audit de 147 règles vérifiables par analyse statique (60%)
+- Audit de **160 règles** vérifiables par analyse statique (65%)
 - Détection automatique du type de site (e-commerce, SaaS, blog, vitrine...)
 - Filtrage intelligent des règles selon le contexte
-- Rapports structurés avec recommandations
+- **Section Quick Wins** : corrections CSS simples prioritaires
+- Rapports structurés avec **prioritisation** (Accessibilité > SEO > UX)
 - Support des 14 rubriques et 6 dimensions transversales
+- **Validation JSON** intégrée avec schémas
 
 ### Couverture
 
 | Catégorie | Règles | Description |
 |-----------|--------|-------------|
-| `static` | 147 (60%) | Vérifiable par analyse HTML |
-| `requires_dom` | 52 (21%) | Nécessite navigateur headless |
-| `requires_interaction` | 31 (13%) | Nécessite test fonctionnel |
-| `content_quality` | 15 (6%) | Évaluation qualitative |
+| `static` | 160 (65%) | Vérifiable par analyse HTML |
+| `requires_dom` | 33 (14%) | Nécessite navigateur headless |
+| `requires_interaction` | 44 (18%) | Nécessite test fonctionnel |
+| `content_quality` | 8 (3%) | Évaluation qualitative |
 
 ---
 
@@ -123,9 +125,12 @@ opquast-skill/
 │   ├── opquast-v5.json      # 245 règles enrichies
 │   └── site-profiles.json   # Profils de détection
 ├── schemas/
-│   └── audit-report.json    # Schéma JSON des rapports
+│   ├── audit-report.json    # Schéma JSON des rapports
+│   ├── rules-schema.json    # Schéma pour opquast-v5.json
+│   └── profiles-schema.json # Schéma pour site-profiles.json
 ├── scripts/
-│   └── enrich-rules.py      # Script d'enrichissement
+│   ├── enrich-rules.py      # Script d'enrichissement
+│   └── validate.py          # Validation JSON Schema
 ├── references/
 │   ├── regles-v5/           # 245 règles détaillées (.md)
 │   └── V5/                  # Par rubrique/dimension
@@ -163,13 +168,27 @@ Modifier `rules/site-profiles.json` pour ajuster la détection ou ajouter des pr
 
 ## Développement
 
+### Valider les fichiers JSON
+
+Vérifier l'intégrité des fichiers JSON avec le script de validation :
+
+```bash
+python3 scripts/validate.py
+```
+
+Ce script vérifie :
+- Conformité au schéma JSON
+- Cohérence des compteurs de couverture
+- Unicité des IDs de règles
+- Validité des références dans les profils
+
 ### Enrichir les règles
 
 Si vous modifiez les fichiers dans `references/regles-v5/`, régénérez le JSON :
 
 ```bash
-cd scripts
-python3 enrich-rules.py
+python3 scripts/enrich-rules.py
+python3 scripts/validate.py  # Vérifier après modification
 ```
 
 ### Ajouter un profil de site

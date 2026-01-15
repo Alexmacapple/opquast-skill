@@ -23,20 +23,20 @@ Catégoriser chaque règle Opquast selon qu'elle peut être vérifiée par :
 
 | Catégorie | Règles | Pourcentage | Vérifiable par le skill |
 |-----------|--------|-------------|-------------------------|
-| `static` | 147 | 60% | Oui |
-| `requires_dom` | 52 | 21% | Non (nécessite headless browser) |
-| `requires_interaction` | 31 | 13% | Non (nécessite test fonctionnel) |
-| `content_quality` | 15 | 6% | Partiel (évaluation subjective) |
+| `static` | 160 | 65% | Oui |
+| `requires_dom` | 33 | 14% | Non (nécessite headless browser) |
+| `requires_interaction` | 44 | 18% | Non (nécessite test fonctionnel) |
+| `content_quality` | 8 | 3% | Partiel (évaluation subjective) |
 
 ### Couverture effective
 
-- **Règles vérifiables** : 147/245 (60%)
-- **Règles partiellement vérifiables** : 15/245 (6%)
-- **Règles non vérifiables** : 83/245 (34%)
+- **Règles vérifiables** : 160/245 (65%)
+- **Règles partiellement vérifiables** : 8/245 (3%)
+- **Règles non vérifiables** : 77/245 (32%)
 
 ---
 
-## Règles `requires_dom` (52 règles)
+## Règles `requires_dom` (49 règles)
 
 Ces règles nécessitent un navigateur headless (Puppeteer/Playwright) pour être vérifiées :
 
@@ -46,7 +46,6 @@ Ces règles nécessitent un navigateur headless (Puppeteer/Playwright) pour êtr
 | 77 | Étiquette formulaire visuellement rattachée au champ |
 | 78 | Informations contextuelles visuellement rattachées |
 | 138 | Liens de même nature ont apparence identique |
-| 139 | Soulignement réservé aux liens |
 | 140 | Liens visuellement différenciés |
 | 141 | Liens visités différenciés |
 | 142 | Liens internes/externes différenciés |
@@ -56,7 +55,6 @@ Ces règles nécessitent un navigateur headless (Puppeteer/Playwright) pour êtr
 | 182 | Contraste suffisant |
 | 183 | Contenu OK sans styles |
 | 186 | Taille éléments cliquables suffisante |
-| 191 | Texte non justifié |
 | 196 | Impression sans navigation |
 
 ### Navigation et interaction
@@ -84,7 +82,6 @@ Ces règles nécessitent un navigateur headless (Puppeteer/Playwright) pour êtr
 ### Structure
 | Règle | Description |
 |-------|-------------|
-| 237 | Copie contenu non bloquée |
 | 238 | Menu contextuel non bloqué |
 | 244 | Linéarisation tableaux OK |
 
@@ -144,10 +141,10 @@ Ces règles nécessitent une évaluation qualitative du contenu :
   "version": "5.0",
   "total_rules": 245,
   "coverage": {
-    "static": 147,
-    "requires_dom": 52,
-    "requires_interaction": 31,
-    "content_quality": 15
+    "static": 160,
+    "requires_dom": 33,
+    "requires_interaction": 44,
+    "content_quality": 8
   },
   "rules": [
     {
