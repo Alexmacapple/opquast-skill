@@ -7,6 +7,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { mapAxeResults, getAxeRuleIds, AXE_TO_OPQUAST } from '../utils/opquast-mapper.js';
 import { runCustomChecks } from './custom-checks.js';
+import { runInteractionChecks } from './interaction-checks.js';
 
 /**
  * Run axe-core analysis on a page
@@ -128,40 +129,64 @@ export async function checkImageAlt(page) {
 }
 
 /**
- * Run full analysis combining axe-core and custom Playwright checks
+ * Run full analysis combining axe-core, custom, and interaction checks
  * @param {Page} page - Playwright page object
  * @param {Object} options - Analysis options
  * @returns {Promise<Object>} - Combined analysis results
  */
 export async function runFullAnalysis(page, options = {}) {
-  const { includeCustomChecks = true } = options;
+  const {
+    includeCustomChecks = true,
+    includeInteractionChecks = true
+  } = options;
 
   // 1. Run axe-core analysis (25 rules mapped)
   const axeResults = await runAxeAnalysis(page, options);
 
-  if (!includeCustomChecks) {
+  if (!includeCustomChecks && !includeInteractionChecks) {
     return axeResults;
   }
 
   // 2. Run custom Playwright checks (8 rules)
   let customViolations = [];
-  try {
-    customViolations = await runCustomChecks(page);
-  } catch (error) {
-    console.error('Custom checks error:', error.message);
+  if (includeCustomChecks) {
+    try {
+      customViolations = await runCustomChecks(page);
+    } catch (error) {
+      console.error('Custom checks error:', error.message);
+    }
   }
 
-  // 3. Merge results
+  // 3. Run interaction checks (18 rules) - PRD-004
+  let interactionViolations = [];
+  if (includeInteractionChecks) {
+    try {
+      interactionViolations = await runInteractionChecks(page);
+    } catch (error) {
+      console.error('Interaction checks error:', error.message);
+    }
+  }
+
+  // 4. Merge results
+  const allViolations = [
+    ...axeResults.violations,
+    ...customViolations,
+    ...interactionViolations
+  ];
+
   return {
     ...axeResults,
-    violations: [...axeResults.violations, ...customViolations],
+    violations: allViolations,
     customChecks: customViolations,
+    interactionChecks: interactionViolations,
     stats: {
       ...axeResults.stats,
       customChecksRun: 8,
       customViolationsCount: customViolations.length,
-      totalRulesChecked: axeResults.stats.rulesChecked + 8,
-      totalViolationsCount: axeResults.stats.violationsCount + customViolations.length
+      interactionChecksRun: 18,
+      interactionViolationsCount: interactionViolations.length,
+      totalRulesChecked: axeResults.stats.rulesChecked + 8 + 18,
+      totalViolationsCount: allViolations.length
     }
   };
 }

@@ -18,6 +18,11 @@ export const CONFIDENCE_LEVELS = {
     label: 'automated',
     description: 'Playwright-based automated check'
   },
+  'interaction': {
+    confidence: 0.80,
+    label: 'interaction',
+    description: 'Playwright interaction-based check (hover, focus, forms)'
+  },
   'heuristic': {
     confidence: 0.75,
     label: 'heuristic',
