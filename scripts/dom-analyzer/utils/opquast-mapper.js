@@ -18,56 +18,56 @@ export const AXE_TO_OPQUAST = {
 
   // Links - verified axe-core rule
   'link-name': {
-    opquastId: 144,
-    title: 'Les liens sont pourvus d\'un intitulé significatif',
+    opquastId: 136,
+    title: 'Chaque lien est doté d\'un intitulé dans le code source',
     severity: 'critical',
     notes: 'Texte du lien ou aria-label'
   },
 
   // Images - verified axe-core rule
   'image-alt': {
-    opquastId: 111,
-    title: 'Les images sont pourvues d\'une alternative textuelle',
+    opquastId: 118,
+    title: 'Chaque image porteuse d\'information est dotée d\'une alternative textuelle appropriée',
     severity: 'critical',
     notes: 'Attribut alt présent et pertinent'
   },
 
   // Form labels - verified axe-core rule
   'label': {
-    opquastId: 67,
-    title: 'Les champs de formulaire sont associés à des étiquettes',
+    opquastId: 69,
+    title: 'Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre',
     severity: 'critical',
     notes: 'Label explicite ou aria-label'
   },
 
   // HTML lang - verified axe-core rule
   'html-has-lang': {
-    opquastId: 125,
-    title: 'Le code source de chaque page indique la langue principale',
+    opquastId: 130,
+    title: 'Le code source de chaque page indique la langue principale du contenu',
     severity: 'critical',
     notes: 'Attribut lang sur html'
   },
 
   // Document title - verified axe-core rule
   'document-title': {
-    opquastId: 97,
-    title: 'Chaque page a un titre unique et pertinent',
+    opquastId: 103,
+    title: 'Le titre de chaque page permet d\'identifier son contenu',
     severity: 'critical',
     notes: 'Balise title présente et non vide'
   },
 
   // Bypass blocks - verified axe-core rule
   'bypass': {
-    opquastId: 146,
-    title: 'Il est possible de naviguer directement au contenu principal',
+    opquastId: 164,
+    title: 'Chaque page contient des liens d\'accès rapide placés au début du code source',
     severity: 'major',
     notes: 'Skip link ou landmarks'
   },
 
   // Heading order - verified axe-core rule
   'heading-order': {
-    opquastId: 227,
-    title: 'La hiérarchie des titres est cohérente',
+    opquastId: 234,
+    title: 'Le contenu de chaque page est organisé selon une structure de titres et sous-titres hiérarchisée',
     severity: 'major',
     notes: 'Pas de saut de niveau'
   },
@@ -76,16 +76,16 @@ export const AXE_TO_OPQUAST = {
 
   // Buttons - verified axe-core rule
   'button-name': {
-    opquastId: 98,
-    title: 'Les boutons ont un nom accessible',
+    opquastId: 69,
+    title: 'Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre',
     severity: 'critical',
-    notes: 'Texte visible ou aria-label'
+    notes: 'Texte visible ou aria-label sur les boutons'
   },
 
   // Frames - verified axe-core rule
   'frame-title': {
-    opquastId: 164,
-    title: 'Les frames et iframes ont un titre',
+    opquastId: 120,
+    title: 'Les objets inclus sont dotés d\'une alternative textuelle appropriée',
     severity: 'major',
     notes: 'Attribut title sur frame/iframe'
   },
@@ -93,7 +93,7 @@ export const AXE_TO_OPQUAST = {
   // ARIA required attributes - verified axe-core rule
   'aria-required-attr': {
     opquastId: 69,
-    title: 'Les attributs ARIA requis sont présents',
+    title: 'Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre',
     severity: 'critical',
     notes: 'Attributs ARIA obligatoires selon le rôle'
   },
@@ -164,8 +164,8 @@ export const AXE_TO_OPQUAST = {
 
   // Select name - verified axe-core rule
   'select-name': {
-    opquastId: 96,
-    title: 'Les listes déroulantes ont un label',
+    opquastId: 69,
+    title: 'Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre',
     severity: 'critical',
     notes: 'Label associé au select'
   },

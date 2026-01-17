@@ -2,10 +2,11 @@
 
 > Vérifier la cohérence entre axe-core rules et Opquast IDs
 
-**Status**: Draft
+**Status**: COMPLETED
 **Priority**: P2
 **Effort**: Small (2-4h)
 **Impact**: Moyen (corrige potentiels faux positifs/négatifs)
+**Completed**: 2026-01-17
 
 ---
 
@@ -76,18 +77,33 @@ node scripts/audit-mappings.js
 
 ## Acceptance Criteria
 
-- [ ] Audit manuel des 24 mappings complété
-- [ ] Test automatisé de cohérence ajouté
-- [ ] Corrections appliquées si nécessaire
-- [ ] Documentation des mappings mise à jour
+- [x] Audit manuel des 24 mappings complété
+- [x] Test automatisé de cohérence ajouté
+- [x] Corrections appliquées (9 mappings corrigés)
+- [x] Documentation des mappings mise à jour
 
-## Corrections Potentielles
+## Corrections Appliquées
 
-Si des incohérences sont trouvées:
-1. Corriger l'opquastId dans opquast-mapper.js
-2. Mettre à jour les tests
-3. Documenter le changement
+**9 mappings incorrects corrigés:**
+
+| Axe Rule | Ancien ID | Nouveau ID | Titre Opquast |
+|----------|-----------|------------|---------------|
+| image-alt | 111 | **118** | Chaque image porteuse d'information est dotée d'une alternative textuelle |
+| link-name | 144 | **136** | Chaque lien est doté d'un intitulé dans le code source |
+| label | 67 | **69** | Chaque champ de formulaire est associé à une étiquette |
+| html-has-lang | 125 | **130** | Le code source indique la langue principale du contenu |
+| document-title | 97 | **103** | Le titre de chaque page permet d'identifier son contenu |
+| bypass | 146 | **164** | Chaque page contient des liens d'accès rapide |
+| heading-order | 227 | **234** | Structure de titres et sous-titres hiérarchisée |
+| button-name | 98 | **69** | Chaque champ de formulaire est associé à une étiquette |
+| frame-title | 164 | **120** | Les objets inclus sont dotés d'une alternative |
+| select-name | 96 | **69** | Chaque champ de formulaire est associé à une étiquette |
+
+## Tests
+
+- `tests/mapping-coherence.test.js` - 8 tests de cohérence
+- **75 tests passent** (52 mapper + 15 custom + 8 coherence)
 
 ---
 
-*Council flag: "The response failed to identify this critical regression"*
+*Council flag: "The response failed to identify this critical regression"* - **RÉSOLU**

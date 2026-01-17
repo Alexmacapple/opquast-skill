@@ -77,46 +77,46 @@ describe('AXE_TO_OPQUAST Mapping', () => {
       expect(AXE_TO_OPQUAST['color-contrast'].severity).toBe('critical');
     });
 
-    it('should map image-alt to Opquast 111', () => {
-      expect(AXE_TO_OPQUAST['image-alt'].opquastId).toBe(111);
+    it('should map image-alt to Opquast 118', () => {
+      expect(AXE_TO_OPQUAST['image-alt'].opquastId).toBe(118);
       expect(AXE_TO_OPQUAST['image-alt'].severity).toBe('critical');
     });
 
-    it('should map link-name to Opquast 144', () => {
-      expect(AXE_TO_OPQUAST['link-name'].opquastId).toBe(144);
+    it('should map link-name to Opquast 136', () => {
+      expect(AXE_TO_OPQUAST['link-name'].opquastId).toBe(136);
       expect(AXE_TO_OPQUAST['link-name'].severity).toBe('critical');
     });
 
-    it('should map document-title to Opquast 97', () => {
-      expect(AXE_TO_OPQUAST['document-title'].opquastId).toBe(97);
+    it('should map document-title to Opquast 103', () => {
+      expect(AXE_TO_OPQUAST['document-title'].opquastId).toBe(103);
       expect(AXE_TO_OPQUAST['document-title'].severity).toBe('critical');
     });
 
-    it('should map html-has-lang to Opquast 125', () => {
-      expect(AXE_TO_OPQUAST['html-has-lang'].opquastId).toBe(125);
+    it('should map html-has-lang to Opquast 130', () => {
+      expect(AXE_TO_OPQUAST['html-has-lang'].opquastId).toBe(130);
       expect(AXE_TO_OPQUAST['html-has-lang'].severity).toBe('critical');
     });
 
-    it('should map bypass to Opquast 146', () => {
-      expect(AXE_TO_OPQUAST['bypass'].opquastId).toBe(146);
+    it('should map bypass to Opquast 164', () => {
+      expect(AXE_TO_OPQUAST['bypass'].opquastId).toBe(164);
       expect(AXE_TO_OPQUAST['bypass'].severity).toBe('major');
     });
 
-    it('should map label to Opquast 67', () => {
-      expect(AXE_TO_OPQUAST['label'].opquastId).toBe(67);
+    it('should map label to Opquast 69', () => {
+      expect(AXE_TO_OPQUAST['label'].opquastId).toBe(69);
       expect(AXE_TO_OPQUAST['label'].severity).toBe('critical');
     });
 
-    it('should map heading-order to Opquast 227', () => {
-      expect(AXE_TO_OPQUAST['heading-order'].opquastId).toBe(227);
+    it('should map heading-order to Opquast 234', () => {
+      expect(AXE_TO_OPQUAST['heading-order'].opquastId).toBe(234);
       expect(AXE_TO_OPQUAST['heading-order'].severity).toBe('major');
     });
   });
 
   describe('Phase 4 additions (17 new mappings)', () => {
     const phase4Mappings = [
-      ['button-name', 98, 'critical'],
-      ['frame-title', 164, 'major'],
+      ['button-name', 69, 'critical'],
+      ['frame-title', 120, 'major'],
       ['aria-required-attr', 69, 'critical'],
       ['input-image-alt', 118, 'critical'],
       ['empty-heading', 234, 'major'],
@@ -126,7 +126,7 @@ describe('AXE_TO_OPQUAST Mapping', () => {
       ['object-alt', 120, 'critical'],
       ['area-alt', 117, 'critical'],
       ['svg-img-alt', 118, 'critical'],
-      ['select-name', 96, 'critical'],
+      ['select-name', 69, 'critical'],
       ['html-lang-valid', 130, 'major'],
       ['meta-viewport', 193, 'critical'],
       ['duplicate-id', 236, 'major'],
@@ -176,8 +176,8 @@ describe('mapAxeViolation', () => {
     const result = mapAxeViolation(violation);
 
     expect(result).not.toBeNull();
-    expect(result.opquastId).toBe(111);
-    expect(result.title).toBe("Les images sont pourvues d'une alternative textuelle");
+    expect(result.opquastId).toBe(118);
+    expect(result.title).toBe("Chaque image porteuse d'information est dotée d'une alternative textuelle appropriée");
     expect(result.severity).toBe('critical');
     expect(result.axeRuleId).toBe('image-alt');
     expect(result.impact).toBe('critical');
@@ -227,7 +227,7 @@ describe('mapAxeResults', () => {
     const results = mapAxeResults(violations);
 
     expect(results).toHaveLength(3);
-    expect(results.map(r => r.opquastId)).toEqual([111, 144, 97]);
+    expect(results.map(r => r.opquastId)).toEqual([118, 136, 103]);
   });
 
   it('should filter out unmapped violations', () => {
@@ -298,8 +298,8 @@ describe('getSupportedOpquastRules', () => {
     const rules = getSupportedOpquastRules();
 
     // From axe mappings
-    expect(rules).toContain(111); // image-alt
-    expect(rules).toContain(144); // link-name
+    expect(rules).toContain(118); // image-alt
+    expect(rules).toContain(136); // link-name
 
     // From custom checks
     expect(rules).toContain(165); // focus visible
