@@ -4,6 +4,38 @@
  */
 
 /**
+ * Confidence levels for different check sources
+ * PRD-002: Distinguish deterministic (axe-core) vs probabilistic (LLM) checks
+ */
+export const CONFIDENCE_LEVELS = {
+  'axe-core': {
+    confidence: 1.0,
+    label: 'deterministic',
+    description: 'Automated check with deterministic results'
+  },
+  'custom-check': {
+    confidence: 0.85,
+    label: 'automated',
+    description: 'Playwright-based automated check'
+  },
+  'heuristic': {
+    confidence: 0.75,
+    label: 'heuristic',
+    description: 'Static pattern-based detection'
+  },
+  'llm': {
+    confidence: 0.5,
+    label: 'probabilistic',
+    description: 'LLM-based analysis'
+  },
+  'manual': {
+    confidence: 0,
+    label: 'manual',
+    description: 'Requires manual verification'
+  }
+};
+
+/**
  * Mapping table: axe-core rule ID -> Opquast rule ID(s)
  * These are verified axe-core rules that exist in the library
  */
@@ -279,10 +311,17 @@ export function mapAxeViolation(violation) {
     return null;
   }
 
+  const confidenceInfo = CONFIDENCE_LEVELS['axe-core'];
+
   return {
     opquastId: mapping.opquastId,
     title: mapping.title,
     severity: mapping.severity,
+    // PRD-002: Confidence scoring
+    source: 'axe-core',
+    confidence: confidenceInfo.confidence,
+    confidence_label: confidenceInfo.label,
+    // Original fields
     axeRuleId: violation.id,
     impact: violation.impact,
     description: violation.description,
@@ -326,11 +365,52 @@ export function getSupportedOpquastRules() {
   return [...new Set([...axeRules, ...customRules])].sort((a, b) => a - b);
 }
 
+/**
+ * Create a custom check result with confidence scoring
+ * PRD-002: Provides consistent format for custom Playwright checks
+ * @param {number} opquastId - Opquast rule ID
+ * @param {Object} options - Check result options
+ * @returns {Object} - Formatted result with confidence
+ */
+export function createCustomCheckResult(opquastId, options = {}) {
+  const check = CUSTOM_CHECKS[opquastId];
+  if (!check) {
+    throw new Error(`Unknown custom check: ${opquastId}`);
+  }
+
+  const confidenceInfo = CONFIDENCE_LEVELS['custom-check'];
+
+  return {
+    opquastId,
+    title: check.title,
+    severity: check.severity,
+    // PRD-002: Confidence scoring
+    source: 'custom-check',
+    confidence: confidenceInfo.confidence,
+    confidence_label: confidenceInfo.label,
+    // Custom check specific
+    checkType: check.type,
+    ...options
+  };
+}
+
+/**
+ * Get confidence info for a source type
+ * @param {string} source - Source type (axe-core, custom-check, heuristic, llm, manual)
+ * @returns {Object} - Confidence info
+ */
+export function getConfidenceInfo(source) {
+  return CONFIDENCE_LEVELS[source] || CONFIDENCE_LEVELS['manual'];
+}
+
 export default {
   AXE_TO_OPQUAST,
   CUSTOM_CHECKS,
+  CONFIDENCE_LEVELS,
   mapAxeViolation,
   mapAxeResults,
   getAxeRuleIds,
-  getSupportedOpquastRules
+  getSupportedOpquastRules,
+  createCustomCheckResult,
+  getConfidenceInfo
 };

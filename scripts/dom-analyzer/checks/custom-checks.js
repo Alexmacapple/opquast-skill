@@ -3,20 +3,28 @@
  * Implements 8 rules that cannot be covered by axe-core
  */
 
-import { CUSTOM_CHECKS } from '../utils/opquast-mapper.js';
+import { CUSTOM_CHECKS, CONFIDENCE_LEVELS } from '../utils/opquast-mapper.js';
 
 /**
  * Format a violation result in standard Opquast format
+ * PRD-002: Includes confidence scoring for custom checks
  */
 function formatViolation(opquastId, nodes) {
   const check = CUSTOM_CHECKS[opquastId];
   if (!check || nodes.length === 0) return null;
 
+  const confidenceInfo = CONFIDENCE_LEVELS['custom-check'];
+
   return {
     opquastId,
     title: check.title,
     severity: check.severity,
-    type: check.type,
+    // PRD-002: Confidence scoring
+    source: 'custom-check',
+    confidence: confidenceInfo.confidence,
+    confidence_label: confidenceInfo.label,
+    // Check details
+    checkType: check.type,
     nodes: nodes.map(node => ({
       html: node.html,
       target: node.target || [],

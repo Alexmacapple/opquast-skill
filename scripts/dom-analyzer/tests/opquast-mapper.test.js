@@ -7,10 +7,13 @@ import { describe, it, expect } from 'vitest';
 import {
   AXE_TO_OPQUAST,
   CUSTOM_CHECKS,
+  CONFIDENCE_LEVELS,
   mapAxeViolation,
   mapAxeResults,
   getAxeRuleIds,
-  getSupportedOpquastRules
+  getSupportedOpquastRules,
+  createCustomCheckResult,
+  getConfidenceInfo
 } from '../utils/opquast-mapper.js';
 
 // Mock axe-core violation for testing
@@ -214,6 +217,26 @@ describe('mapAxeViolation', () => {
     expect(result.notes).toBeDefined();
     expect(result.notes).toContain('4.5:1');
   });
+
+  // PRD-002: Confidence scoring tests
+  it('should include confidence scoring fields', () => {
+    const violation = createMockViolation('image-alt');
+    const result = mapAxeViolation(violation);
+
+    expect(result.source).toBe('axe-core');
+    expect(result.confidence).toBe(1.0);
+    expect(result.confidence_label).toBe('deterministic');
+  });
+
+  it('should have deterministic confidence for all axe results', () => {
+    const rules = ['color-contrast', 'link-name', 'label', 'bypass'];
+    rules.forEach(ruleId => {
+      const violation = createMockViolation(ruleId);
+      const result = mapAxeViolation(violation);
+      expect(result.confidence).toBe(1.0);
+      expect(result.confidence_label).toBe('deterministic');
+    });
+  });
 });
 
 describe('mapAxeResults', () => {
@@ -357,5 +380,92 @@ describe('Edge cases', () => {
     expect(result).not.toBeNull();
     expect(result.impact).toBeUndefined();
     expect(result.description).toBeUndefined();
+  });
+});
+
+// PRD-002: Confidence Scoring Tests
+describe('CONFIDENCE_LEVELS', () => {
+  it('should define 5 confidence levels', () => {
+    expect(Object.keys(CONFIDENCE_LEVELS)).toHaveLength(5);
+  });
+
+  it('should have axe-core with 1.0 confidence', () => {
+    expect(CONFIDENCE_LEVELS['axe-core'].confidence).toBe(1.0);
+    expect(CONFIDENCE_LEVELS['axe-core'].label).toBe('deterministic');
+  });
+
+  it('should have custom-check with 0.85 confidence', () => {
+    expect(CONFIDENCE_LEVELS['custom-check'].confidence).toBe(0.85);
+    expect(CONFIDENCE_LEVELS['custom-check'].label).toBe('automated');
+  });
+
+  it('should have heuristic with 0.75 confidence', () => {
+    expect(CONFIDENCE_LEVELS['heuristic'].confidence).toBe(0.75);
+    expect(CONFIDENCE_LEVELS['heuristic'].label).toBe('heuristic');
+  });
+
+  it('should have llm with 0.5 confidence', () => {
+    expect(CONFIDENCE_LEVELS['llm'].confidence).toBe(0.5);
+    expect(CONFIDENCE_LEVELS['llm'].label).toBe('probabilistic');
+  });
+
+  it('should have manual with 0 confidence', () => {
+    expect(CONFIDENCE_LEVELS['manual'].confidence).toBe(0);
+    expect(CONFIDENCE_LEVELS['manual'].label).toBe('manual');
+  });
+
+  it('all levels should have description', () => {
+    Object.values(CONFIDENCE_LEVELS).forEach(level => {
+      expect(level.description).toBeDefined();
+      expect(typeof level.description).toBe('string');
+    });
+  });
+});
+
+describe('createCustomCheckResult', () => {
+  it('should create result with custom-check confidence', () => {
+    const result = createCustomCheckResult(165, { nodes: [] });
+
+    expect(result.opquastId).toBe(165);
+    expect(result.source).toBe('custom-check');
+    expect(result.confidence).toBe(0.85);
+    expect(result.confidence_label).toBe('automated');
+  });
+
+  it('should include check metadata', () => {
+    const result = createCustomCheckResult(186, { nodes: [] });
+
+    expect(result.title).toBe('La taille des éléments cliquables est suffisante');
+    expect(result.severity).toBe('critical');
+    expect(result.checkType).toBe('target-size');
+  });
+
+  it('should merge additional options', () => {
+    const result = createCustomCheckResult(167, {
+      nodes: [{ html: '<div tabindex="5">' }],
+      customField: 'test'
+    });
+
+    expect(result.nodes).toHaveLength(1);
+    expect(result.customField).toBe('test');
+  });
+
+  it('should throw for unknown check', () => {
+    expect(() => createCustomCheckResult(999)).toThrow('Unknown custom check');
+  });
+});
+
+describe('getConfidenceInfo', () => {
+  it('should return correct info for known sources', () => {
+    expect(getConfidenceInfo('axe-core').confidence).toBe(1.0);
+    expect(getConfidenceInfo('custom-check').confidence).toBe(0.85);
+    expect(getConfidenceInfo('heuristic').confidence).toBe(0.75);
+    expect(getConfidenceInfo('llm').confidence).toBe(0.5);
+  });
+
+  it('should return manual for unknown source', () => {
+    const info = getConfidenceInfo('unknown-source');
+    expect(info.confidence).toBe(0);
+    expect(info.label).toBe('manual');
   });
 });
