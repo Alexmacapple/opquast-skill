@@ -27,27 +27,45 @@ allowed-tools:
 
 ## Couverture et Limitations
 
-> **Important** : Ce skill utilise l'analyse statique (HTML source). Certaines règles nécessitent un navigateur headless pour être vérifiées.
-
 ### Catégories de règles
 
-| Catégorie | Règles | Description |
-|-----------|--------|-------------|
-| `static` | 160 (65%) | Vérifiable par analyse du code source HTML |
-| `requires_dom` | 33 (14%) | Nécessite DOM rendu et/ou CSS calculé |
-| `requires_interaction` | 44 (18%) | Nécessite interaction utilisateur ou test fonctionnel |
-| `content_quality` | 8 (3%) | Évaluation qualitative du contenu éditorial |
+| Catégorie | Règles | Méthode | Automatisé |
+|-----------|--------|---------|------------|
+| `static` | 160 (65%) | WebFetch + analyse HTML | LLM |
+| `requires_dom` | 33 (14%) | DOM Analyzer (Playwright) | **32/33** |
+| `requires_interaction` | 44 (18%) | Test manuel | Non |
+| `content_quality` | 8 (3%) | Évaluation éditoriale | Non |
 
-### Règles NON vérifiables sans navigateur headless
+### DOM Analyzer (Analyse Automatisée)
 
-- **Contraste** (règle 182) : nécessite CSS calculé
-- **Focus clavier** (règles 165-167) : nécessite test d'interaction
-- **Navigation clavier** (règle 166) : nécessite test fonctionnel
-- **Taille cliquable** (règle 186) : nécessite CSS calculé
-- **Popups** (règle 154) : nécessite navigation réelle
-- **Liens visités** (règle 141) : nécessite état navigateur
+Le module `scripts/dom-analyzer/` vérifie automatiquement **32 règles DOM** via Playwright + axe-core:
 
-Le rapport indiquera les règles non vérifiables avec la mention `[Nécessite analyse DOM]`.
+| Type | Règles | Exemples |
+|------|--------|----------|
+| Axe-core mappings | 24 | Contraste (182), Alt images (111), Labels (67) |
+| Custom Playwright | 8 | Focus visible (165), Taille cliquable (186), Tabindex (167) |
+
+**Usage programmatique:**
+```javascript
+import { analyze } from './scripts/dom-analyzer/lib/analyzer.js';
+const results = await analyze('https://example.com');
+```
+
+**Usage CLI:**
+```bash
+node scripts/dom-analyzer/index.js https://example.com --json
+```
+
+### Bridge Unifié
+
+Le script `scripts/bridge.js` combine analyse static + DOM:
+
+```bash
+node scripts/bridge.js https://example.com
+# Output: DOM violations + guidance pour règles static
+```
+
+**Couverture totale:** 193/245 règles (79%) via static + DOM combinés.
 
 ### Limitation WebFetch (SPAs et contenu dynamique)
 

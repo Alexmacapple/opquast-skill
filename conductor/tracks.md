@@ -8,6 +8,7 @@
 
 | ID | Track | Status | Priority |
 |----|-------|--------|----------|
+| phase7_bridge_20260117 | Phase 7 - Bridge Skill↔Dom-Analyzer | [x] | Critical |
 | phase6_axe_tests_20260115 | Phase 6 - Tests Axe-core Mapping | [x] | Critical |
 | phase5_tests_20260115 | Phase 5 - Tests Automatisés | [x] | Critical |
 | phase3_dom_20260115 | Phase 3/4 - Analyse DOM (Playwright) | [x] | High |

@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Opquast DOM Analyzer
+ * Opquast DOM Analyzer - CLI
  * Headless browser analysis for Opquast rules requiring DOM/CSS
  *
  * Usage:
  *   node index.js <url> [options]
  *   node index.js https://example.com --json
  *   node index.js https://example.com --rules 182,186
+ *
+ * For programmatic usage, import from lib/analyzer.js:
+ *   import { analyze } from './lib/analyzer.js';
  */
 
-import { createContext, navigateAndWait, closeBrowser } from './utils/browser.js';
-import { runFullAnalysis } from './checks/axe-checks.js';
-import { getSupportedOpquastRules } from './utils/opquast-mapper.js';
+import { analyze, getSupportedRules, getAnalyzerInfo } from './lib/analyzer.js';
 
 /**
  * Parse command line arguments
@@ -23,6 +24,11 @@ function parseArgs() {
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     printHelp();
+    process.exit(0);
+  }
+
+  if (args[0] === '--info') {
+    console.log(JSON.stringify(getAnalyzerInfo(), null, 2));
     process.exit(0);
   }
 
@@ -55,6 +61,7 @@ Options:
   --json          Output results as JSON
   --verbose, -v   Verbose output
   --rules <ids>   Comma-separated list of Opquast rule IDs to check
+  --info          Show analyzer info (rules count, capabilities)
   --help, -h      Show this help message
 
 Examples:
@@ -62,8 +69,12 @@ Examples:
   opquast-dom https://example.com --json
   opquast-dom https://example.com --rules 182,186,165
 
+Programmatic Usage:
+  import { analyze } from './lib/analyzer.js';
+  const results = await analyze('https://example.com');
+
 Supported Opquast Rules:
-  ${getSupportedOpquastRules().join(', ')}
+  ${getSupportedRules().join(', ')}
 `);
 }
 
@@ -99,12 +110,12 @@ function formatConsoleOutput(results, verbose) {
 
     for (const violation of results.violations) {
       console.log(`[${violation.severity.toUpperCase()}] Règle ${violation.opquastId}: ${violation.title}`);
-      console.log(`  Impact: ${violation.impact}`);
+      console.log(`  Impact: ${violation.impact || 'N/A'}`);
       console.log(`  Elements: ${violation.nodes.length}`);
 
       if (verbose) {
         for (const node of violation.nodes.slice(0, 3)) {
-          console.log(`    - ${node.target.join(' > ')}`);
+          console.log(`    - ${node.target ? node.target.join(' > ') : 'N/A'}`);
           console.log(`      ${node.failureSummary}`);
         }
         if (violation.nodes.length > 3) {
@@ -130,21 +141,14 @@ async function main() {
   }
 
   try {
-    // Create browser context
-    const context = await createContext();
-    const page = await context.newPage();
-
-    // Navigate to URL
     if (!options.json) {
       console.log(`Analyzing: ${options.url}`);
     }
 
-    await navigateAndWait(page, options.url);
-
-    // Run analysis (axe-core + custom Playwright checks)
-    const results = await runFullAnalysis(page, {
+    const results = await analyze(options.url, {
       includeWarnings: options.verbose,
-      includeCustomChecks: true
+      includeCustomChecks: true,
+      rules: options.rules
     });
 
     // Output results
@@ -153,9 +157,6 @@ async function main() {
     } else {
       formatConsoleOutput(results, options.verbose);
     }
-
-    // Cleanup
-    await closeBrowser();
 
     // Exit with appropriate code
     process.exit(results.violations.length > 0 ? 1 : 0);
@@ -170,7 +171,6 @@ async function main() {
     } else {
       console.error(`Error: ${error.message}`);
     }
-    await closeBrowser();
     process.exit(2);
   }
 }
