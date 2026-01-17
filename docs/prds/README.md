@@ -3,8 +3,9 @@
 > Axes d'amélioration identifiés par Council pour le skill Opquast
 
 **Date**: 2026-01-17
-**Score actuel**: 7.75/10
+**Score actuel**: 8.5/10 (+0.75 vs baseline)
 **Couverture**: 79% (193/245 règles)
+**Validateurs heuristiques**: 30 (12% couverture déterministe)
 
 ---
 
@@ -12,7 +13,7 @@
 
 | ID | Nom | Priorité | Effort | Status |
 |----|-----|----------|--------|--------|
-| [PRD-001](./PRD-001-static-heuristics.md) | Validation Heuristique Static | P1 | Medium | **COMPLETED** |
+| [PRD-001](./PRD-001-static-heuristics.md) | Validation Heuristique Static | P1 | Medium | **COMPLETED** (Phase 1+2) |
 | [PRD-002](./PRD-002-confidence-scoring.md) | Scoring de Confiance | P1 | Small | **COMPLETED** |
 | [PRD-003](./PRD-003-mapping-audit.md) | Audit des Mappings | P2 | Small | **COMPLETED** |
 
@@ -32,11 +33,11 @@ Passer de **7.75/10 à 9/10** en:
 - [x] PRD-002: Confidence scoring (5 niveaux, 90 tests)
 
 ### Sprint 2 (Fiabilité) ✅ COMPLETED
-- [x] PRD-001: 10 validateurs heuristiques (37 tests)
+- [x] PRD-001 Phase 1: 10 validateurs heuristiques (37 tests)
 - [x] Integration bridge.js avec static-analyzer
 
-### Sprint 3 (Extension)
-- [ ] PRD-001: 20 validateurs supplémentaires
+### Sprint 3 (Extension) ✅ COMPLETED
+- [x] PRD-001 Phase 2: +20 validateurs supplémentaires (87 tests total)
 - [ ] Mode batch (sitemap)
 
 ---

@@ -242,6 +242,376 @@ export const STATIC_VALIDATORS = {
       // If no ads detected, rule doesn't apply
       return null;
     }
+  },
+
+  // ============================================
+  // PHASE 2 VALIDATORS (20 additional rules)
+  // ============================================
+
+  // Rule 5: Abbreviations have expansions
+  5: {
+    title: 'Les abreviations ont leur signification',
+    severity: 'minor',
+    check: (html) => {
+      // Check for abbr tags with title
+      const abbrWithTitle = /<abbr[^>]+title\s*=\s*["'][^"']+["']/i.test(html);
+      // Check for acronym tags (legacy)
+      const acronymTag = /<acronym[^>]+title\s*=\s*["'][^"']+["']/i.test(html);
+
+      if (abbrWithTitle || acronymTag) {
+        return { valid: true, confidence: 0.9 };
+      }
+      // Not all pages have abbreviations - skip if none found
+      const hasAbbr = /<abbr/i.test(html);
+      if (hasAbbr) {
+        return { valid: false, confidence: 0.8, details: 'Balise abbr sans attribut title' };
+      }
+      return null;
+    }
+  },
+
+  // Rule 22: Login with standard credentials
+  22: {
+    title: 'Connexion possible avec identifiants standards',
+    severity: 'minor',
+    check: (html) => {
+      // Check for login form with email/password fields
+      const hasLoginForm = /type\s*=\s*["']password["']/i.test(html);
+      if (!hasLoginForm) return null;
+
+      const hasEmailField = /type\s*=\s*["']email["']/i.test(html) ||
+                           /name\s*=\s*["'](email|login|username)["']/i.test(html);
+      if (hasEmailField) {
+        return { valid: true, confidence: 0.8 };
+      }
+      return { valid: false, confidence: 0.6, details: 'Formulaire de connexion sans champ email standard' };
+    }
+  },
+
+  // Rule 29: Cookie policy explained
+  29: {
+    title: 'Politique cookies expliquee',
+    severity: 'major',
+    check: (html) => {
+      const cookiePatterns = [
+        /href\s*=\s*["'][^"']*\/cookies/i,
+        /href\s*=\s*["'][^"']*cookie-policy/i,
+        />[\s]*(politique.*cookies|cookie.*policy|gestion.*cookies)/i,
+        /class\s*=\s*["'][^"']*(cookie-banner|cookie-consent|cookies-notice)/i
+      ];
+
+      for (const pattern of cookiePatterns) {
+        if (pattern.test(html)) {
+          return { valid: true, confidence: 0.85 };
+        }
+      }
+      // Check if site uses cookies
+      const usesCookies = /(gtag|analytics|facebook|twitter|linkedin)/i.test(html);
+      if (usesCookies) {
+        return { valid: false, confidence: 0.7, details: 'Scripts tiers detectes sans politique cookies visible' };
+      }
+      return null;
+    }
+  },
+
+  // Rule 37: Terms and conditions accessible
+  37: {
+    title: 'CGV/CGU accessibles',
+    severity: 'major',
+    check: (html) => {
+      const termsPatterns = [
+        /href\s*=\s*["'][^"']*\/(cgv|cgu|conditions|terms)/i,
+        />[\s]*(conditions\s+(generales|d'utilisation)|terms\s+(of\s+)?(service|use)|cgu|cgv)/i
+      ];
+
+      for (const pattern of termsPatterns) {
+        if (pattern.test(html)) {
+          return { valid: true, confidence: 0.9 };
+        }
+      }
+      // E-commerce sites must have terms
+      const isEcommerce = /(add-to-cart|panier|checkout|paiement|payment)/i.test(html);
+      if (isEcommerce) {
+        return { valid: false, confidence: 0.75, details: 'Site e-commerce sans lien CGV visible' };
+      }
+      return null;
+    }
+  },
+
+  // Rule 42: Currency indicated
+  42: {
+    title: 'Devise des prix indiquee',
+    severity: 'minor',
+    check: (html) => {
+      // Check for currency symbols or codes near prices
+      const hasCurrency = /(€|\$|£|EUR|USD|GBP)\s*\d|\d\s*(€|\$|£|EUR|USD|GBP)/i.test(html);
+      const hasPrice = /itemprop\s*=\s*["']price["']/i.test(html) ||
+                      /class\s*=\s*["'][^"']*price/i.test(html);
+
+      if (hasCurrency) {
+        return { valid: true, confidence: 0.9 };
+      }
+      if (hasPrice) {
+        return { valid: false, confidence: 0.7, details: 'Prix detectes sans devise explicite' };
+      }
+      return null;
+    }
+  },
+
+  // Rule 99: Homepage describes site content
+  99: {
+    title: 'Page accueil decrit le contenu du site',
+    severity: 'major',
+    check: (html, url) => {
+      // Only check homepage
+      if (url && !url.match(/^https?:\/\/[^\/]+\/?$/)) return null;
+
+      // Check for descriptive elements
+      const hasH1 = /<h1[^>]*>[^<]+<\/h1>/i.test(html);
+      const hasMetaDesc = /<meta[^>]+name\s*=\s*["']description["']/i.test(html);
+      const hasMainContent = /<main/i.test(html) || /role\s*=\s*["']main["']/i.test(html);
+
+      if (hasH1 && hasMetaDesc && hasMainContent) {
+        return { valid: true, confidence: 0.85 };
+      }
+      if (!hasH1) {
+        return { valid: false, confidence: 0.8, details: 'Page accueil sans H1 descriptif' };
+      }
+      return { valid: true, confidence: 0.7 };
+    }
+  },
+
+  // Rule 104: Favicon present
+  104: {
+    title: 'Favicon present',
+    severity: 'minor',
+    check: (html) => {
+      const hasFavicon = /<link[^>]+rel\s*=\s*["'](icon|shortcut icon|apple-touch-icon)["']/i.test(html);
+      if (hasFavicon) {
+        return { valid: true, confidence: 1.0 };
+      }
+      return { valid: false, confidence: 0.9, details: 'Favicon non declare dans le HTML' };
+    }
+  },
+
+  // Rule 105: Print stylesheet
+  105: {
+    title: 'Feuille de style impression disponible',
+    severity: 'minor',
+    check: (html) => {
+      const hasPrintCSS = /<link[^>]+media\s*=\s*["']print["']/i.test(html) ||
+                         /@media\s+print/i.test(html);
+      if (hasPrintCSS) {
+        return { valid: true, confidence: 1.0 };
+      }
+      return null; // Not all pages need print styles
+    }
+  },
+
+  // Rule 106: Canonical URL
+  106: {
+    title: 'URL canonique declaree',
+    severity: 'major',
+    check: (html) => {
+      const hasCanonical = /<link[^>]+rel\s*=\s*["']canonical["'][^>]+href\s*=\s*["'][^"']+["']/i.test(html) ||
+                          /<link[^>]+href\s*=\s*["'][^"']+["'][^>]+rel\s*=\s*["']canonical["']/i.test(html);
+      if (hasCanonical) {
+        return { valid: true, confidence: 1.0 };
+      }
+      return { valid: false, confidence: 0.8, details: 'URL canonique non declaree' };
+    }
+  },
+
+  // Rule 107: Multiple contact methods
+  107: {
+    title: 'Au moins deux moyens de contact proposes',
+    severity: 'major',
+    check: (html) => {
+      let contactMethods = 0;
+
+      if (/href\s*=\s*["']mailto:/i.test(html)) contactMethods++;
+      if (/href\s*=\s*["']tel:/i.test(html)) contactMethods++;
+      if (/href\s*=\s*["'][^"']*\/contact/i.test(html)) contactMethods++;
+      if (/href\s*=\s*["'][^"']*(twitter|facebook|linkedin|instagram)/i.test(html)) contactMethods++;
+      if (/<form[^>]*>[\s\S]*?(contact|message|email)/i.test(html)) contactMethods++;
+
+      if (contactMethods >= 2) {
+        return { valid: true, confidence: 0.9 };
+      }
+      if (contactMethods === 1) {
+        return { valid: false, confidence: 0.8, details: 'Un seul moyen de contact detecte' };
+      }
+      return { valid: false, confidence: 0.7, details: 'Aucun moyen de contact detecte' };
+    }
+  },
+
+  // Rule 108: OpenGraph tags
+  108: {
+    title: 'Balises OpenGraph presentes',
+    severity: 'minor',
+    check: (html) => {
+      const hasOgTitle = /<meta[^>]+property\s*=\s*["']og:title["']/i.test(html);
+      const hasOgDesc = /<meta[^>]+property\s*=\s*["']og:description["']/i.test(html);
+      const hasOgImage = /<meta[^>]+property\s*=\s*["']og:image["']/i.test(html);
+
+      if (hasOgTitle && hasOgDesc && hasOgImage) {
+        return { valid: true, confidence: 1.0 };
+      }
+      if (hasOgTitle || hasOgDesc) {
+        return { valid: false, confidence: 0.8, details: 'Balises OpenGraph incompletes' };
+      }
+      return null; // Not required for all sites
+    }
+  },
+
+  // Rule 109: Twitter Cards
+  109: {
+    title: 'Twitter Cards configurees',
+    severity: 'minor',
+    check: (html) => {
+      const hasTwitterCard = /<meta[^>]+name\s*=\s*["']twitter:card["']/i.test(html);
+      const hasTwitterTitle = /<meta[^>]+name\s*=\s*["']twitter:title["']/i.test(html);
+
+      if (hasTwitterCard && hasTwitterTitle) {
+        return { valid: true, confidence: 1.0 };
+      }
+      if (hasTwitterCard) {
+        return { valid: false, confidence: 0.8, details: 'Twitter Card incomplete' };
+      }
+      return null; // Not required
+    }
+  },
+
+  // Rule 178: Newsletter unsubscribe without login
+  178: {
+    title: 'Desinscription newsletter sans connexion',
+    severity: 'minor',
+    check: (html) => {
+      // Check for unsubscribe links
+      const hasUnsubscribe = /href\s*=\s*["'][^"']*(unsubscribe|desinscri|desabonne)/i.test(html) ||
+                            />[\s]*(se\s+desinscrire|unsubscribe|desabonnement)/i.test(html);
+
+      // Check if page has newsletter form
+      const hasNewsletter = /(newsletter|inscription.*email|email.*inscription)/i.test(html);
+
+      if (hasUnsubscribe) {
+        return { valid: true, confidence: 0.85 };
+      }
+      if (hasNewsletter) {
+        return { valid: false, confidence: 0.6, details: 'Newsletter detectee sans lien desinscription visible' };
+      }
+      return null;
+    }
+  },
+
+  // Rule 219: Robots.txt referenced
+  219: {
+    title: 'Instructions robots.txt',
+    severity: 'minor',
+    check: (html) => {
+      // Check for robots meta tag
+      const hasRobotsMeta = /<meta[^>]+name\s*=\s*["']robots["']/i.test(html);
+      if (hasRobotsMeta) {
+        return { valid: true, confidence: 0.9 };
+      }
+      // Can't check robots.txt file from HTML, return null
+      return null;
+    }
+  },
+
+  // Rule 220: Sitemap available
+  220: {
+    title: 'Sitemap disponible',
+    severity: 'minor',
+    check: (html) => {
+      const hasSitemapLink = /href\s*=\s*["'][^"']*sitemap/i.test(html) ||
+                            /<loc>[^<]*sitemap/i.test(html);
+      if (hasSitemapLink) {
+        return { valid: true, confidence: 0.9 };
+      }
+      // Can't verify sitemap.xml from HTML alone
+      return null;
+    }
+  },
+
+  // Rule 221: Charset UTF-8
+  221: {
+    title: 'Encodage UTF-8 declare',
+    severity: 'critical',
+    check: (html) => {
+      const hasUtf8 = /<meta[^>]+charset\s*=\s*["']?utf-8["']?/i.test(html) ||
+                     /content-type[^>]+charset\s*=\s*utf-8/i.test(html);
+      if (hasUtf8) {
+        return { valid: true, confidence: 1.0 };
+      }
+      const hasOtherCharset = /<meta[^>]+charset\s*=/i.test(html);
+      if (hasOtherCharset) {
+        return { valid: false, confidence: 0.9, details: 'Encodage declare mais pas UTF-8' };
+      }
+      return { valid: false, confidence: 0.8, details: 'Encodage non declare' };
+    }
+  },
+
+  // Rule 222: Doctype HTML5
+  222: {
+    title: 'Doctype HTML5 declare',
+    severity: 'major',
+    check: (html) => {
+      const hasHtml5Doctype = /^[\s]*<!DOCTYPE\s+html>/i.test(html);
+      if (hasHtml5Doctype) {
+        return { valid: true, confidence: 1.0 };
+      }
+      const hasOtherDoctype = /<!DOCTYPE/i.test(html);
+      if (hasOtherDoctype) {
+        return { valid: false, confidence: 0.9, details: 'Doctype present mais pas HTML5' };
+      }
+      return { valid: false, confidence: 1.0, details: 'Doctype manquant' };
+    }
+  },
+
+  // Rule 223: No deprecated HTML elements
+  223: {
+    title: 'Pas elements HTML obsoletes',
+    severity: 'minor',
+    check: (html) => {
+      const deprecatedTags = /<(font|center|marquee|blink|frame|frameset|applet)\b/i;
+      if (deprecatedTags.test(html)) {
+        return { valid: false, confidence: 1.0, details: 'Elements HTML obsoletes detectes' };
+      }
+      return { valid: true, confidence: 0.9 };
+    }
+  },
+
+  // Rule 224: No inline styles
+  224: {
+    title: 'Pas de styles inline excessifs',
+    severity: 'minor',
+    check: (html) => {
+      const inlineStyles = html.match(/style\s*=\s*["'][^"']+["']/gi) || [];
+      if (inlineStyles.length > 20) {
+        return { valid: false, confidence: 0.7, details: `${inlineStyles.length} styles inline detectes` };
+      }
+      if (inlineStyles.length > 10) {
+        return { valid: false, confidence: 0.6, details: `${inlineStyles.length} styles inline detectes` };
+      }
+      return { valid: true, confidence: 0.8 };
+    }
+  },
+
+  // Rule 225: Structured data present
+  225: {
+    title: 'Donnees structurees presentes',
+    severity: 'minor',
+    check: (html) => {
+      const hasJsonLd = /<script[^>]+type\s*=\s*["']application\/ld\+json["']/i.test(html);
+      const hasMicrodata = /itemscope|itemprop|itemtype/i.test(html);
+      const hasRdfa = /typeof\s*=|property\s*=.*vocab/i.test(html);
+
+      if (hasJsonLd || hasMicrodata || hasRdfa) {
+        return { valid: true, confidence: 0.9 };
+      }
+      return null; // Not required for all sites
+    }
   }
 };
 
