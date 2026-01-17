@@ -17,6 +17,7 @@
  */
 
 import { analyze, getAnalyzerInfo } from './dom-analyzer/lib/analyzer.js';
+import { runStaticValidators, getValidatorInfo } from './static-analyzer/validators.js';
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -59,11 +60,13 @@ export async function runUnifiedAnalysis(url, options = {}) {
     success: true,
     analysis: {
       dom: null,
-      static: null
+      static: null,
+      heuristic: null
     },
     summary: {
       totalRules: 245,
       domRulesChecked: 0,
+      staticRulesChecked: 0,
       staticRulesApplicable: 0,
       violations: [],
       coverage: {}
@@ -115,16 +118,47 @@ export async function runUnifiedAnalysis(url, options = {}) {
       })));
     }
 
-    // 2. Get static rules info (for guidance, not automated checking)
+    // 2. Run static heuristic validators (PRD-001)
+    if (!domOnly) {
+      try {
+        console.error(`[Bridge] Running static heuristic validators...`);
+        const response = await fetch(url, {
+          headers: { 'User-Agent': 'OpquastBot/1.0' }
+        });
+        const html = await response.text();
+
+        const heuristicResults = runStaticValidators(html, url);
+        results.analysis.heuristic = heuristicResults;
+        results.summary.staticRulesChecked = heuristicResults.passed.length + heuristicResults.failed.length;
+
+        // Add heuristic violations to summary
+        results.summary.violations.push(...heuristicResults.failed.map(v => ({
+          ...v,
+          source: 'static-heuristic'
+        })));
+
+        console.error(`[Bridge] Heuristic validators: ${heuristicResults.passed.length} passed, ${heuristicResults.failed.length} failed, ${heuristicResults.skipped.length} skipped`);
+      } catch (fetchError) {
+        console.error(`[Bridge] Warning: Could not fetch HTML for static validation: ${fetchError.message}`);
+        results.analysis.heuristic = { error: fetchError.message };
+      }
+    }
+
+    // 3. Get static rules info (for guidance on remaining rules)
     if (includeStatic && !domOnly) {
       const staticRules = rules.filter(r => r.category === 'static');
       const domRules = rules.filter(r => r.category === 'requires_dom');
       const interactionRules = rules.filter(r => r.category === 'requires_interaction');
 
+      const heuristicCount = results.summary.staticRulesChecked || 0;
+      const remainingStatic = staticRules.length - heuristicCount;
+
       results.analysis.static = {
         totalStaticRules: staticRules.length,
+        heuristicChecked: heuristicCount,
+        remainingForLLM: remainingStatic,
         staticRuleIds: staticRules.map(r => r.id),
-        note: 'Static rules require HTML source analysis (WebFetch + LLM interpretation)'
+        note: `${heuristicCount} rules checked via heuristics (deterministic), ${remainingStatic} require LLM interpretation`
       };
 
       results.summary.staticRulesApplicable = staticRules.length;
@@ -135,9 +169,15 @@ export async function runUnifiedAnalysis(url, options = {}) {
           total: domRules.length,
           percentage: Math.round((results.summary.domRulesChecked / domRules.length) * 100)
         },
+        heuristic: {
+          checked: heuristicCount,
+          validators: 10,
+          note: 'Deterministic HTML pattern checks'
+        },
         static: {
           applicable: staticRules.length,
-          note: 'Requires WebFetch analysis'
+          remaining: remainingStatic,
+          note: 'Remaining rules require LLM analysis'
         },
         interaction: {
           count: interactionRules.length,
@@ -183,8 +223,11 @@ function formatResults(results) {
   if (results.summary.coverage.dom) {
     console.log(`DOM Rules: ${results.summary.coverage.dom.checked}/${results.summary.coverage.dom.total} checked (${results.summary.coverage.dom.percentage}%)`);
   }
+  if (results.summary.coverage.heuristic) {
+    console.log(`Heuristic Validators: ${results.summary.coverage.heuristic.checked}/${results.summary.coverage.heuristic.validators} (deterministic)`);
+  }
   if (results.summary.coverage.static) {
-    console.log(`Static Rules: ${results.summary.coverage.static.applicable} applicable (via WebFetch)`);
+    console.log(`Static Rules: ${results.summary.coverage.static.remaining || results.summary.coverage.static.applicable} remaining (LLM required)`);
   }
   if (results.summary.coverage.interaction) {
     console.log(`Interaction Rules: ${results.summary.coverage.interaction.count} (manual testing)`);
@@ -252,14 +295,16 @@ Examples:
   }
 
   if (args[0] === '--info') {
-    const info = getAnalyzerInfo();
+    const domInfo = getAnalyzerInfo();
+    const validatorInfo = getValidatorInfo();
     console.log(JSON.stringify({
       bridge: {
         name: 'Opquast Bridge',
-        version: '1.0.0',
-        capabilities: ['dom-analysis', 'static-guidance', 'unified-report']
+        version: '1.1.0',
+        capabilities: ['dom-analysis', 'static-heuristics', 'unified-report']
       },
-      domAnalyzer: info
+      domAnalyzer: domInfo,
+      staticValidators: validatorInfo
     }, null, 2));
     process.exit(0);
   }
