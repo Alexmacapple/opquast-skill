@@ -56,13 +56,32 @@ const result = detectSPA(html, 'https://example.com');
 
 Les validateurs convertissent des règles "probabilistes" (LLM) en vérifications déterministes via regex et analyse HTML.
 
-| Catégorie | Règles | Exemples |
-|-----------|--------|----------|
-| Métadonnées | 6 | Meta description (3), viewport (227), charset (226) |
-| Formulaires | 8 | Labels (67), autocomplete (75), placeholders (77) |
-| Accessibilité | 7 | Lang (125), skip links (162), target blank (133) |
-| Structure | 5 | H1 unique (104), heading hierarchy (228) |
-| Sécurité | 4 | HTTPS (217), CSP headers |
+### Structure modulaire (v2)
+
+| Module | Règles | IDs |
+|--------|--------|-----|
+| `validators/metadata.js` | 10 | 3, 103, 104, 106, 108, 109, 130, 221, 222, 225 |
+| `validators/accessibility.js` | 2 | 127, 193 |
+| `validators/content.js` | 6 | 1, 2, 5, 6, 8, 99 |
+| `validators/privacy.js` | 2 | 15, 29 |
+| `validators/ecommerce.js` | 2 | 37, 42 |
+| `validators/contact.js` | 2 | 22, 107 |
+| `validators/seo.js` | 3 | 105, 219, 220 |
+| `validators/structure.js` | 3 | 178, 223, 224 |
+
+### Usage par catégorie
+
+```javascript
+import { runStaticValidators } from './validators.js';
+
+// Toutes les règles
+const all = runStaticValidators(html, url);
+
+// Seulement privacy + ecommerce
+const filtered = runStaticValidators(html, url, {
+  categories: ['privacy', 'ecommerce']
+});
+```
 
 Chaque validateur retourne:
 - `{ valid: true, confidence: 1.0 }` - Règle respectée
@@ -121,13 +140,23 @@ npm test -- validators
 
 ```
 static-analyzer/
-├── validators.js          # 30 validateurs Opquast
-├── spa-detector.js        # Détection SPA/SSR
-├── spa-detector.test.js   # Tests SPA (38)
+├── validators.js              # Point d'entrée (agrège les modules)
+├── validators/                # Modules thématiques (v2)
+│   ├── index.js               # Agrégateur + utilitaires
+│   ├── metadata.js            # 10 règles
+│   ├── accessibility.js       # 2 règles
+│   ├── content.js             # 6 règles
+│   ├── privacy.js             # 2 règles
+│   ├── ecommerce.js           # 2 règles
+│   ├── contact.js             # 2 règles
+│   ├── seo.js                 # 3 règles
+│   └── structure.js           # 3 règles
+├── spa-detector.js            # Détection SPA/SSR (11 frameworks)
+├── spa-detector.test.js       # Tests SPA (38)
 ├── tests/
-│   └── validators.test.js # Tests validateurs (87)
-├── package.json           # vitest config
-└── README.md              # Ce fichier
+│   └── validators.test.js     # Tests validateurs (87)
+├── package.json               # vitest config
+└── README.md                  # Ce fichier
 ```
 
 ## Intégration Bridge

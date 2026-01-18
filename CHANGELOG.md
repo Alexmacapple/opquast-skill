@@ -31,6 +31,12 @@ All notable changes to the Opquast Skill are documented in this file.
 
 - **SKILL.md**: Updated documentation with SPA detection v2 behavior matrix
 - **Static analysis never skipped**: SPAs generate warnings but analysis always runs
+- **Modular validators** (`scripts/static-analyzer/validators/`)
+  - Split 30 validators into 8 thematic modules
+  - `metadata.js` (10), `accessibility.js` (2), `content.js` (6), `privacy.js` (2)
+  - `ecommerce.js` (2), `contact.js` (2), `seo.js` (3), `structure.js` (3)
+  - Category-based filtering via `runStaticValidators(html, url, { categories: [...] })`
+  - Backward compatible: `STATIC_VALIDATORS` and `runStaticValidators()` unchanged
 
 ### Fixed
 
