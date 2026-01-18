@@ -67,16 +67,47 @@ node scripts/bridge.js https://example.com
 
 **Couverture totale:** 193/245 règles (79%) via static + DOM combinés.
 
-### Limitation WebFetch (SPAs et contenu dynamique)
+### Détection automatique SPA (v2)
 
-> **Attention** : `WebFetch` récupère uniquement le HTML source initial. Les sites utilisant du rendu côté client (React, Vue, Angular, SPAs) peuvent avoir un contenu incomplet.
+Le skill détecte automatiquement **11 frameworks SPA/SSR** avant analyse:
+
+| Framework | Signatures | Type |
+|-----------|------------|------|
+| React/Next.js | `#root`, `#__next`, `__NEXT_DATA__` | SPA / SSR hybride |
+| Vue/Nuxt | `#app`, `#__nuxt`, `__NUXT__` | SPA / SSR hybride |
+| Angular | `app-root`, `ng-version` | SPA |
+| Svelte | `class*="svelte-"` | SPA |
+| Solid.js | `data-hk`, `_$HY` | SPA |
+| Qwik | `q:container` | Resumable |
+| Alpine.js | `x-data`, `x-init` | Lightweight |
+| HTMX | `hx-get`, `hx-post` | Lightweight |
+| Ember | `data-ember` | SPA |
+| Lit | Web Components | SPA |
+| Preact | similaire React | SPA |
+
+**Comportement selon type détecté:**
+
+| Type | Recommendation | Analyse statique |
+|------|----------------|------------------|
+| SSR hybride (Next/Nuxt) | Warning | Exécutée (valide) |
+| Lightweight (Alpine/HTMX) | Full analysis | Exécutée |
+| SPA pure (React/Vue/Angular) | DOM preferred | Exécutée + warning |
+| Site classique | - | Exécutée |
+
+**Important**: L'analyse statique n'est **jamais** skippée. Les SPAs génèrent des warnings mais les résultats restent disponibles.
+
+**Option CLI**: `--no-spa-detection` pour désactiver la détection
+
+### Limitation WebFetch (contenu dynamique)
+
+> **Attention** : `WebFetch` récupère uniquement le HTML source initial.
 
 **Impact sur l'analyse** :
 - Les éléments injectés par JavaScript ne seront pas visibles
 - Les données chargées via API (fetch/XHR) ne seront pas analysées
-- Certaines règles "static" peuvent être faussement non-conformes si le contenu réel dépend du JS
+- Le skill détecte automatiquement les SPAs et affiche un warning
 
-**Recommandation** : Pour les SPAs, demander à l'utilisateur de fournir le HTML rendu (via DevTools > Elements > Copy outer HTML) ou utiliser un outil headless externe.
+**Recommandation** : Pour les SPAs pures, utiliser le DOM Analyzer (`scripts/bridge.js`) ou demander à l'utilisateur de fournir le HTML rendu.
 
 ## Ressources
 

@@ -18,6 +18,7 @@
 
 import { analyze, getAnalyzerInfo } from './dom-analyzer/lib/analyzer.js';
 import { runStaticValidators, getValidatorInfo } from './static-analyzer/validators.js';
+import { detectSPA, getSPADetectorInfo } from './static-analyzer/spa-detector.js';
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -51,14 +52,17 @@ export async function runUnifiedAnalysis(url, options = {}) {
     domOnly = false,
     includeStatic = true,
     theme = null,
-    rubrique = null
+    rubrique = null,
+    spaDetection = true
   } = options;
 
   const results = {
     url,
     timestamp: new Date().toISOString(),
     success: true,
+    warnings: [],
     analysis: {
+      spaDetection: null,
       dom: null,
       static: null,
       heuristic: null
@@ -127,9 +131,37 @@ export async function runUnifiedAnalysis(url, options = {}) {
         });
         const html = await response.text();
 
+        // Pre-flight SPA detection (v2 - warning only, never skip)
+        let spaInfo = null;
+        if (spaDetection) {
+          spaInfo = detectSPA(html, url);
+          results.analysis.spaDetection = spaInfo;
+
+          if (spaInfo.isSPA) {
+            const confPct = Math.round(spaInfo.confidence * 100);
+            console.error(`[Bridge] ${spaInfo.isSSR ? 'SSR Hybride' : 'SPA'} détecté: ${spaInfo.framework} (${confPct}%)`);
+
+            results.warnings.push(...spaInfo.warnings);
+
+            if (spaInfo.recommendation === 'dom-preferred') {
+              console.error(`[Bridge] Recommandation: privilégier les résultats DOM Analyzer`);
+            }
+          }
+        }
+
+        // Static validators run TOUJOURS (même pour SPA)
         const heuristicResults = runStaticValidators(html, url);
         results.analysis.heuristic = heuristicResults;
         results.summary.staticRulesChecked = heuristicResults.passed.length + heuristicResults.failed.length;
+
+        // Ajouter metadata SPA aux résultats heuristiques
+        if (spaInfo?.isSPA) {
+          results.analysis.heuristic.spaWarning = {
+            framework: spaInfo.framework,
+            reliability: spaInfo.isSSR ? 'medium' : 'low',
+            note: 'Résultats statiques peuvent être incomplets pour contenu client-rendered'
+          };
+        }
 
         // Add heuristic violations to summary
         results.summary.violations.push(...heuristicResults.failed.map(v => ({
@@ -280,11 +312,12 @@ Usage:
   node scripts/bridge.js <url> [options]
 
 Options:
-  --json          Output as JSON
-  --dom-only      Only run DOM analysis
-  --theme <name>  Filter by theme (accessibilite, seo, securite, etc.)
-  --rubrique <n>  Filter by rubrique (formulaires, navigation, etc.)
-  --help, -h      Show this help
+  --json              Output as JSON
+  --dom-only          Only run DOM analysis
+  --no-spa-detection  Disable SPA framework detection
+  --theme <name>      Filter by theme (accessibilite, seo, securite, etc.)
+  --rubrique <n>      Filter by rubrique (formulaires, navigation, etc.)
+  --help, -h          Show this help
 
 Examples:
   node scripts/bridge.js https://example.com
@@ -297,14 +330,16 @@ Examples:
   if (args[0] === '--info') {
     const domInfo = getAnalyzerInfo();
     const validatorInfo = getValidatorInfo();
+    const spaInfo = getSPADetectorInfo();
     console.log(JSON.stringify({
       bridge: {
         name: 'Opquast Bridge',
-        version: '1.1.0',
-        capabilities: ['dom-analysis', 'static-heuristics', 'unified-report']
+        version: '1.2.0',
+        capabilities: ['dom-analysis', 'static-heuristics', 'spa-detection', 'unified-report']
       },
       domAnalyzer: domInfo,
-      staticValidators: validatorInfo
+      staticValidators: validatorInfo,
+      spaDetector: spaInfo
     }, null, 2));
     process.exit(0);
   }
@@ -312,6 +347,7 @@ Examples:
   const url = args[0];
   const options = {
     domOnly: args.includes('--dom-only'),
+    spaDetection: !args.includes('--no-spa-detection'),
     theme: null,
     rubrique: null
   };
