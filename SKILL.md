@@ -7,15 +7,20 @@ description: |
   INVOKE THIS SKILL when user wants:
   - Audit qualité: "analyse opquast", "audit qualité web", "check opquast"
   - Analyse URL: "/opquast https://...", "vérifie ce site", "analyse cette page"
-  - Par thématique: "analyse accessibilité", "audit SEO", "check sécurité"
+  - Par thématique: "qualité accessibilité opquast", "audit SEO opquast", "check sécurité opquast"
   - Par rubrique: "vérifie les formulaires", "analyse e-commerce", "audit navigation"
   - Consulter règle: "règle opquast 42", "montre la règle 125", "détail règle"
   - Explorer règles: "liste règles opquast", "cherche règles images", "règles critiques"
+
+  Do NOT invoke for: audits WCAG purs (use /audit-accessibilite-web), audits RGAA (use /audit-rgaa), corrections de code (use /fix-accessibilite)
+context: fork
+argument-hint: "[URL ou --commande]"
 allowed-tools:
   - "WebFetch(*)"
   - "Read(**/*)"
   - "Glob(**/*)"
   - "Grep(**/*)"
+  - "Bash(node scripts/*)"
 ---
 
 # Opquast Checker
@@ -25,205 +30,57 @@ allowed-tools:
 **Disclaimer** (afficher une fois par session) :
 > Opquast Checker n'est pas édité par la société Opquast mais utilise ses contenus et recommandations. Pour approfondir la qualité web : [certification Opquast](https://www.opquast.com/).
 
-## Couverture et Limitations
+## Arguments
 
-### Catégories de règles
+Parser `$ARGUMENTS` pour extraire :
 
-| Catégorie | Règles | Méthode | Automatisé |
-|-----------|--------|---------|------------|
-| `static` | 160 (65%) | WebFetch + analyse HTML | LLM |
-| `requires_dom` | 33 (14%) | DOM Analyzer (Playwright) | **32/33** |
-| `requires_interaction` | 44 (18%) | Test manuel | Non |
-| `content_quality` | 8 (3%) | Évaluation éditoriale | Non |
+| Pattern | Action | Exemple |
+|---------|--------|---------|
+| URL seule | Analyse complète | `/opquast https://example.com` |
+| URL + `--theme <t>` | Analyse par thématique | `/opquast https://example.com --theme seo` |
+| URL + `--rubrique <r>` | Analyse par rubrique | `/opquast https://example.com --rubrique formulaires` |
+| `--regle <N>` | Consulter une règle | `/opquast --regle 42` |
+| `--list [--page N]` | Liste paginée | `/opquast --list --page 3` |
+| `--search <mot>` | Recherche par mot-clé | `/opquast --search image` |
+| `--severity <s>` | Filtrer par sévérité | `/opquast --severity critical` |
 
-### DOM Analyzer (Analyse Automatisée)
+Valeurs acceptées : voir `references/rubriques-dimensions.md`
 
-Le module `scripts/dom-analyzer/` vérifie automatiquement **32 règles DOM** via Playwright + axe-core:
+## Contraintes
 
-| Type | Règles | Exemples |
-|------|--------|----------|
-| Axe-core mappings | 24 | Contraste (182), Alt images (111), Labels (67) |
-| Custom Playwright | 8 | Focus visible (165), Taille cliquable (186), Tabindex (167) |
+### Impératifs
 
-**Usage programmatique:**
-```javascript
-import { analyze } from './scripts/dom-analyzer/lib/analyzer.js';
-const results = await analyze('https://example.com');
-```
+- TOUJOURS afficher le disclaimer lors de la première analyse de la session
+- TOUJOURS détecter le profil du site avant de lancer l'audit
+- TOUJOURS mentionner les règles non vérifiables (DOM, interaction) dans le rapport
+- TOUJOURS charger `rules/opquast-v5.json` comme source de vérité pour les règles
+- JAMAIS inventer un numéro de règle ou une sévérité non présente dans le JSON
+- JAMAIS afficher les règles conformes ou non applicables dans le rapport
+- JAMAIS analyser sans avoir récupéré le HTML via WebFetch (ou HTML fourni par l'utilisateur)
+- JAMAIS analyser plus de 5 pages par invocation. Au-delà, proposer une analyse par lots
 
-**Usage CLI:**
-```bash
-node scripts/dom-analyzer/index.js https://example.com --json
-```
+### Règles d'affichage
 
-### Bridge Unifié
+- Grouper les non-conformités par tag principal (Accessibilité > SEO > autres)
+- Quick Wins en premier (corrections CSS simples à fort impact)
+- Section "Règles non vérifiables" avec les règles `requires_dom`
+- Si tout est conforme : "Toutes les règles vérifiables sont respectées."
 
-Le script `scripts/bridge.js` combine analyse static + DOM:
+## Couverture
 
-```bash
-node scripts/bridge.js https://example.com
-# Output: DOM violations + guidance pour règles static
-```
-
-**Couverture totale:** 193/245 règles (79%) via static + DOM combinés.
-
-### Limitation WebFetch (SPAs et contenu dynamique)
-
-> **Attention** : `WebFetch` récupère uniquement le HTML source initial. Les sites utilisant du rendu côté client (React, Vue, Angular, SPAs) peuvent avoir un contenu incomplet.
-
-**Impact sur l'analyse** :
-- Les éléments injectés par JavaScript ne seront pas visibles
-- Les données chargées via API (fetch/XHR) ne seront pas analysées
-- Certaines règles "static" peuvent être faussement non-conformes si le contenu réel dépend du JS
-
-**Recommandation** : Pour les SPAs, demander à l'utilisateur de fournir le HTML rendu (via DevTools > Elements > Copy outer HTML) ou utiliser un outil headless externe.
+193/245 règles (79%) via static + DOM combinés. Détails, catégories et limitations SPA : voir `references/couverture-limitations.md`
 
 ## Ressources
 
-### Règles structurées (JSON)
-- `rules/opquast-v5.json` : 245 règles enrichies avec :
-  - `id`, `title`, `category`, `rubrique`, `tags`
-  - `objectives` : Liste des objectifs de la règle
-  - `solution` : Solution recommandée
-  - `verification` : Méthode de vérification
-  - `severity` : Niveau de sévérité (`critical`, `major`, `minor`)
-
-### Niveaux de sévérité
-
-| Niveau | Critères | Nombre |
-|--------|----------|--------|
-| `critical` | Accessibilité, Sécurité, Données personnelles | 156 |
-| `major` | SEO, Basics, E-Commerce | 44 |
-| `minor` | Autres rubriques | 45 |
-
-### Profils de sites
-- `rules/site-profiles.json` : Détection et filtrage par type de site
-
-### Schéma de sortie
-- `schemas/audit-report.json` : Schéma JSON pour les rapports d'audit structurés
-
-### Règles détaillées (Markdown)
-- `references/regles-v5/` : 245 règles individuelles (regle-001.md à regle-245.md)
-- `references/V5/` : Fichiers par rubrique et dimension transversale
-
-### Rubriques (14)
-| Fichier | Rubrique | Règles |
-|---------|----------|--------|
-| 01-opquast-contenus.md | Contenus | 14 |
-| 02-opquast-donnees-personnelles.md | Données personnelles | 15 |
-| 03-opquast-e-commerce.md | E-Commerce | 39 |
-| 04-opquast-formulaires.md | Formulaires | 30 |
-| 05-opquast-identification-contact.md | Identification et contact | 17 |
-| 06-opquast-images-medias.md | Images et médias | 12 |
-| 07-opquast-internationalisation.md | Internationalisation | 8 |
-| 08-opquast-liens.md | Liens | 17 |
-| 09-opquast-navigation.md | Navigation | 20 |
-| 10-opquast-newsletter.md | Newsletter | 7 |
-| 11-opquast-presentation.md | Présentation | 17 |
-| 12-opquast-securite.md | Sécurité | 21 |
-| 13-opquast-serveur-performances.md | Serveur et performances | 13 |
-| 14-opquast-structure-code.md | Structure et code | 15 |
-
-### Dimensions transversales (6)
-| Fichier | Dimension | Règles |
-|---------|-----------|--------|
-| T1-accessibilite.md | Accessibilité | 128 |
-| T2-seo.md | SEO | 37 |
-| T3-donnees-personnelles.md | Privacy | 21 |
-| T4-ecoconception.md | Écoconception | 35 |
-| T5-mobile.md | Mobile | 6 |
-| T6-basics.md | Basics | 65 |
-
-## Commandes
-
-### Analyse
-
-| Commande | Action |
-|----------|--------|
-| `/opquast <URL>` | Analyse complète |
-| `/opquast <URL> --theme accessibilite` | Par thématique |
-| `/opquast <URL> --rubrique formulaires` | Par rubrique |
-| `/opquast --regle 42` | Consulter une règle |
-
-### Explorateur de règles
-
-| Commande | Action |
-|----------|--------|
-| `/opquast --list` | Liste paginée des 245 règles |
-| `/opquast --list --page 2` | Page 2 (règles 21-40) |
-| `/opquast --search <mot>` | Recherche par mot-clé |
-| `/opquast --theme <theme>` | Règles d'une thématique |
-| `/opquast --rubrique <rubrique>` | Règles d'une rubrique |
-| `/opquast --severity critical` | Règles par sévérité |
-
-**Thématiques** : `accessibilite`, `seo`, `securite`, `privacy`, `ecoconception`, `mobile`, `basics`
-
-**Rubriques** : `contenus`, `donnees-personnelles`, `e-commerce`, `formulaires`, `identification`, `images`, `internationalisation`, `liens`, `navigation`, `newsletter`, `presentation`, `securite`, `serveur`, `structure`
-
-**Sévérités** : `critical` (156), `major` (44), `minor` (45)
-
-### Exemples explorateur
-
-#### Liste paginée (`--list`)
-```
-/opquast --list
-
-# Règles Opquast V5 (1-20 sur 245)
-
-| ID | Titre | Rubrique | Sévérité |
-|----|-------|----------|----------|
-| 1 | Il est possible de connaître les nouveaux contenus | Contenus | critical |
-| 2 | Les droits de copie sont disponibles | Contenus | minor |
-| 3 | Métadonnée description présente | Contenus | major |
-| ... | ... | ... | ... |
-
-Page 1/13 — `/opquast --list --page 2` pour la suite
-```
-
-#### Recherche (`--search`)
-```
-/opquast --search formulaire
-
-# 30 règles contenant "formulaire"
-
-| ID | Titre | Sévérité |
-|----|-------|----------|
-| 67 | Chaque champ est associé à une étiquette | critical |
-| 68 | Les étiquettes sont visuellement proches | major |
-| 69 | Les champs obligatoires sont indiqués | critical |
-| ... | ... | ... |
-```
-
-#### Par thématique (`--theme`)
-```
-/opquast --theme accessibilite
-
-# 128 règles Accessibilité
-
-| ID | Titre | Rubrique | Sévérité |
-|----|-------|----------|----------|
-| 4 | Dates en format explicite | Contenus | critical |
-| 5 | Abréviations expliquées | Contenus | critical |
-| ... | ... | ... | ... |
-```
-
-#### Par rubrique (`--rubrique`)
-```
-/opquast --rubrique e-commerce
-
-# 39 règles E-Commerce
-
-| ID | Titre | Sévérité |
-|----|-------|----------|
-| 15 | Prix clairement indiqués | critical |
-| 16 | Devise mentionnée | critical |
-| 17 | Disponibilité indiquée | major |
-| ... | ... | ... |
-```
+- `rules/opquast-v5.json` : 245 règles enrichies (id, title, category, rubrique, tags, objectives, solution, verification, severity)
+- `rules/site-profiles.json` : Détection et filtrage par type de site (6 profils)
+- `schemas/audit-report.json` : Schéma JSON pour les rapports structurés
+- `references/regles-v5/` : 245 règles détaillées individuelles (regle-001.md à regle-245.md)
+- `references/V5/` : Fichiers par rubrique (14) et dimension transversale (6)
+- `references/rubriques-dimensions.md` : Valeurs acceptées pour thématiques, rubriques et sévérités
+- `references/explorateur-exemples.md` : Exemples de sortie pour l'explorateur de règles
 
 ## Intelligence contextuelle
-
-### Détection du type de site
 
 Lors de l'analyse, détecter automatiquement le profil du site via `rules/site-profiles.json` :
 
@@ -236,146 +93,96 @@ Lors de l'analyse, détecter automatiquement le profil du site via `rules/site-p
 | `institutionnel` | démarches, services publics, délibérations |
 | `newsletter` | formulaire newsletter, subscribe |
 
-### Filtrage intelligent
-
-Pour chaque profil, le fichier définit :
-- `rubriques_prioritaires` : rubriques à vérifier en priorité
-- `regles_critiques` : règles incontournables pour ce type
-- `regles_exclues` : règles non pertinentes (ex: e-commerce sur un blog)
-- `pages_a_analyser` : pages recommandées pour l'audit
-
-### Utilisation
-
-1. Analyser le HTML récupéré
-2. Chercher les indicateurs de détection (keywords, elements, urls, meta)
-3. Sélectionner le profil correspondant
-4. Adapter l'audit aux règles pertinentes
-5. Mentionner le profil détecté dans le rapport
-
-## Méthodologie
-
-### 1. Récupération
-- Utiliser `WebFetch` pour la page principale
-- Explorer : contact, formulaires, panier, mentions légales, CGV
-
-### 2. Détection du profil
-- Charger `rules/site-profiles.json`
-- Analyser le HTML pour détecter le type de site
-- Appliquer le profil ou utiliser `vitrine` par défaut
-
-### 3. Vérification
-Pour chaque règle applicable :
-1. Charger `rules/opquast-v5.json` pour les métadonnées enrichies
-2. Filtrer par `category: "static"` (règles vérifiables)
-3. Exclure les `regles_exclues` du profil détecté
-4. Prioriser les `regles_critiques` du profil
-5. Utiliser `verification` pour la méthode de test
-6. Utiliser `solution` pour les recommandations
-
-### 4. Pages à analyser
-Selon le profil détecté, analyser les pages définies dans `pages_a_analyser`.
-Par défaut :
-- Page d'accueil
-- Contact / Identification
-- Mentions légales / CGV / Confidentialité
+Pour chaque profil, le fichier définit `rubriques_prioritaires`, `regles_critiques`, `regles_exclues` et `pages_a_analyser`.
 
 ## Format de sortie
 
-```markdown
-# Analyse Opquast : [Nom du site]
+Template complet, ordre de priorité et exemple condensé : voir `references/format-sortie.md`
 
-**URL** : [url]
-**Date** : [date]
-**Profil détecté** : [e-commerce|saas|blog|vitrine|institutionnel]
-**Scope** : [thématique/rubrique ou "adapté au profil"]
+Structure du rapport : Couverture -> Quick Wins -> Non-conformités par priorité (Accessibilité > SEO > UX) -> Règles non vérifiables (DOM).
 
-## Couverture
+### Exemple `/opquast <URL>` (condensé)
 
-| Statut | Nombre |
-|--------|--------|
-| Conformes | X |
-| Non conformes | Y |
-| Non vérifiables (DOM) | Z |
-| Non applicables | W |
+```
+/opquast https://boutique.example.com
 
----
-
-## Quick Wins
-
-> Corrections rapides à fort impact
-
-| Règle | Problème | Solution | Impact |
-|-------|----------|----------|--------|
-| 191 | Texte justifié détecté | Supprimer `text-align: justify` | Accessibilité |
-| 237 | Copie bloquée | Retirer `user-select: none` | Accessibilité |
-| 139 | Soulignement sur non-liens | Utiliser autre style que underline | Accessibilité |
-
----
-
-## Non-conformités par priorité
-
-### Accessibilité (priorité haute)
-
-#### Règle [N] : [Titre]
-**Impact** : Accessibilité
-**Pages** : [URL 1], [URL 2]
-**Solution** : [Extrait du champ solution de la règle]
-[Voir la règle](https://checklists.opquast.com/fr/qualite-numerique/[N])
-
-### SEO (priorité moyenne)
-
-#### Règle [N] : [Titre]
-...
-
-### UX/Performance (priorité standard)
-
-#### Règle [N] : [Titre]
-...
-
----
-
-## Règles non vérifiables
-
-Les règles suivantes nécessitent une analyse DOM/CSS :
-- Règle 182 : Contraste [Nécessite analyse DOM]
-- Règle 165 : Focus clavier [Nécessite analyse DOM]
+# Analyse Opquast : Boutique Example
+**Profil** : e-commerce | **Non conformes** : 14 | **DOM** : 33 non vérifiables
+Quick Wins : règle 191 (justify), 237 (user-select) | Accessibilité : règle 111 (alt images)
 ```
 
-### Ordre de priorité
-1. **Accessibilité** : Impact utilisateurs en situation de handicap
-2. **SEO** : Impact référencement et découvrabilité
-3. **UX/Performance** : Impact expérience utilisateur générale
+Rapport complet et template : voir `references/format-sortie.md`
 
-### Section Quick Wins
-Afficher les règles CSS-détectables avec correction simple :
-- Règles avec `static_verification_method` dans le JSON
-- Solutions en une ligne (ex: "Supprimer text-align: justify")
-- Toujours en premier pour action immédiate
+### Exemple `/opquast --regle`
 
-### Règles d'affichage
-- NE PAS afficher les règles conformes
-- NE PAS afficher les règles non applicables
-- Grouper par tag principal (Accessibilité > SEO > autres)
-- Afficher la section "Règles non vérifiables" avec les règles `requires_dom`
-- Si tout OK : "Toutes les règles sont respectées."
+```
+/opquast --regle 42
 
-## URL inaccessible
+# Règle 42 : Les liens sont visuellement différenciés du reste du contenu
+**Rubrique** : Liens | **Sévérité** : critical | **Tags** : Accessibilité
+**Solution** : Utiliser couleur + soulignement (pas la couleur seule)
+→ https://checklists.opquast.com/fr/qualite-numerique/42
+```
 
-Si WebFetch échoue :
-1. Proposer des captures d'écran
-2. Préciser que certaines règles ne pourront pas être vérifiées
-3. Demander de vérifier l'URL
+### Exemple `/opquast --search`
+
+```
+/opquast --search formulaire
+
+# 30 règles contenant "formulaire"
+| ID | Titre | Sévérité |
+|----|-------|----------|
+| 67 | Chaque champ associé à une étiquette | critical |
+| 69 | Champs obligatoires indiqués | critical |
+```
+
+### Exemple `/opquast --theme`
+
+```
+/opquast https://example.com --theme seo
+
+# Analyse Opquast : Example — SEO (37 règles)
+**Non conformes** : 5 | Règle 3 : meta description absente | Règle 130 : URL non signifiantes
+```
+
+Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/explorateur-exemples.md`
+
+## Gestion d'erreurs
+
+| Situation | Comportement |
+|-----------|-------------|
+| WebFetch échoue (URL inaccessible) | Proposer des captures d'écran, préciser les limitations, demander de vérifier l'URL |
+| `rules/opquast-v5.json` introuvable | STOPPER l'analyse. Signaler : "Fichier de règles manquant. Vérifier l'installation du skill." |
+| `rules/site-profiles.json` introuvable | Continuer sans profilage. Appliquer toutes les règles static sans filtrage |
+| Profil de site non reconnu | Utiliser le profil `vitrine` par défaut. Mentionner dans le rapport : "Profil non détecté, analyse généraliste appliquée" |
+| HTML source quasi-vide (SPA détectée) | Avertir l'utilisateur. Proposer de fournir le HTML rendu ou d'utiliser le DOM Analyzer |
+| `scripts/bridge.js` échoue ou absent | Continuer sans analyse DOM. Classer toutes les règles `requires_dom` dans la section "Non vérifiables" |
+| Argument `$ARGUMENTS` non reconnu | Lister les commandes disponibles avec exemples |
 
 ## Workflow
 
-1. Afficher disclaimer (première fois)
-2. Récupérer page avec WebFetch
-3. **Détecter le profil** via `rules/site-profiles.json`
-4. Charger `rules/opquast-v5.json` (règles enrichies)
-5. Filtrer selon profil et scope demandé
-6. Analyser les pages recommandées
-7. Générer rapport avec profil détecté
-8. Proposer analyse complémentaire
+1. Parser `$ARGUMENTS` (URL, flags, commandes)
+2. Afficher disclaimer (première fois)
+3. Récupérer page principale avec `WebFetch` + pages secondaires (contact, mentions légales, CGV)
+4. **Détecter le profil** via `rules/site-profiles.json` (défaut : `vitrine`)
+5. Charger `rules/opquast-v5.json`, filtrer par `category: "static"`, exclure `regles_exclues` du profil, prioriser `regles_critiques`
+6. Si le DOM Analyzer est disponible (`scripts/bridge.js`), lancer l'analyse des règles `requires_dom` applicables au profil
+7. Pour chaque règle : appliquer `verification` comme méthode de test, `solution` pour les recommandations
+8. Analyser les pages définies dans `pages_a_analyser` du profil
+9. Générer rapport avec profil détecté (voir `references/format-sortie.md`)
+10. Proposer analyse complémentaire
+
+## Checklist finale
+
+- [ ] Disclaimer affiché
+- [ ] HTML récupéré avec succès (ou limitation SPA signalée)
+- [ ] Profil de site détecté et mentionné dans le rapport
+- [ ] Règles filtrées selon profil et scope
+- [ ] Quick Wins listés en premier
+- [ ] Non-conformités groupées par priorité (Accessibilité > SEO > UX)
+- [ ] Règles non vérifiables (DOM) listées séparément
+- [ ] Lien vers chaque règle citée sur checklists.opquast.com
+- [ ] Analyse complémentaire proposée
 
 ---
 
