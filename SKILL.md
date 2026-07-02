@@ -12,7 +12,7 @@ description: |
   - Consulter règle: "règle opquast 42", "montre la règle 125", "détail règle"
   - Explorer règles: "liste règles opquast", "cherche règles images", "règles critiques"
 
-  Do NOT invoke for: audits WCAG purs (use /audit-accessibilite-web), audits RGAA (use /audit-rgaa), corrections de code (use /fix-accessibilite)
+  Do NOT invoke for: audits WCAG purs (utiliser le skill d'audit d'accessibilité web), audits RGAA (use /audit-rgaa), corrections de code (utiliser le skill de correction d'accessibilité)
 context: fork
 argument-hint: "[URL ou --commande]"
 allowed-tools:
@@ -54,7 +54,9 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 - TOUJOURS détecter le profil du site avant de lancer l'audit
 - TOUJOURS mentionner les règles non vérifiables (DOM, interaction) dans le rapport
 - TOUJOURS charger `rules/opquast-v5.json` comme source de vérité pour les règles
+- TOUJOURS consulter la spec live `https://api.opquast.com/swagger/?format=openapi` avant d'ajouter ou d'utiliser un endpoint API non documenté ici
 - JAMAIS inventer un numéro de règle ou une sévérité non présente dans le JSON
+- JAMAIS inventer un endpoint API, un format d'authentification ou un paramètre : vérifier dans Swagger ou dans `MCP/opquast-mcp/server.py`
 - JAMAIS afficher les règles conformes ou non applicables dans le rapport
 - JAMAIS analyser sans avoir récupéré le HTML via WebFetch (ou HTML fourni par l'utilisateur)
 - JAMAIS analyser plus de 5 pages par invocation. Au-delà, proposer une analyse par lots
@@ -75,10 +77,34 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 - `rules/opquast-v5.json` : 245 règles enrichies (id, title, category, rubrique, tags, objectives, solution, verification, severity)
 - `rules/site-profiles.json` : Détection et filtrage par type de site (6 profils)
 - `schemas/audit-report.json` : Schéma JSON pour les rapports structurés
-- `references/regles-v5/` : 245 règles détaillées individuelles (regle-001.md à regle-245.md)
+- Dossier des règles V5 : 245 règles détaillées individuelles
 - `references/V5/` : Fichiers par rubrique (14) et dimension transversale (6)
 - `references/rubriques-dimensions.md` : Valeurs acceptées pour thématiques, rubriques et sévérités
 - `references/explorateur-exemples.md` : Exemples de sortie pour l'explorateur de règles
+
+## API Opquast
+
+Source de vérité live : `https://api.opquast.com/swagger/?format=openapi`. L'interface humaine est `https://api.opquast.com/swagger/`.
+
+Authentification : les endpoints privés attendent l'en-tête `Authorization: <clé API brute>`. Ne pas préfixer par `Bearer`, `Token` ou `X-API-Key`.
+
+Endpoints V5 utiles (`version=qualite-numerique`) :
+
+| Usage | Endpoint | Auth |
+|-------|----------|------|
+| Checklist publique | `GET /checklist/public/` | Non |
+| Checklist étendue | `GET /checklist/extended/` | Oui |
+| Règle par numéro | `GET /checklist/{number}/` | Oui |
+| Règle aléatoire | `GET /checklist/random/` | Oui |
+| Règle embarquable | `GET /checklist/{number}/embed/` | Non |
+| Règle aléatoire embarquable | `GET /checklist/random/embed/` | Non |
+| Certifiés partenaire | `GET /certified/` | Oui |
+| Certifiés expirés | `GET /certified/expired/` | Oui |
+| Certifié par nom ou clé | `GET /certified/{applicant_name_or_key}/` | Oui |
+
+Serveur local : `MCP/opquast-mcp/server.py` expose ces données comme outils MCP et utilise `rules/opquast-v5.json` comme fallback local quand l'API échoue.
+
+Quand l'utilisateur demande une information actuelle ou une recherche large dans les règles, préférer l'API/MCP si disponible, puis citer `source: api`. Si l'API répond `401` ou `403`, signaler le statut, vérifier la présence de `OPQUAST_API_KEY` ou `.claude/credentials.json`, puis basculer sur les données locales avec `source: local`.
 
 ## Intelligence contextuelle
 
@@ -157,6 +183,8 @@ Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/e
 | Profil de site non reconnu | Utiliser le profil `vitrine` par défaut. Mentionner dans le rapport : "Profil non détecté, analyse généraliste appliquée" |
 | HTML source quasi-vide (SPA détectée) | Avertir l'utilisateur. Proposer de fournir le HTML rendu ou d'utiliser le DOM Analyzer |
 | `scripts/bridge.js` échoue ou absent | Continuer sans analyse DOM. Classer toutes les règles `requires_dom` dans la section "Non vérifiables" |
+| API Opquast répond `401`/`403` | Signaler l'erreur d'authentification, ne pas afficher la clé, utiliser le fallback local si possible |
+| Swagger API indisponible | Ne pas inventer l'endpoint. Utiliser seulement les endpoints déjà documentés ici ou le fallback local |
 | Argument `$ARGUMENTS` non reconnu | Lister les commandes disponibles avec exemples |
 
 ## Workflow
@@ -166,11 +194,12 @@ Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/e
 3. Récupérer page principale avec `WebFetch` + pages secondaires (contact, mentions légales, CGV)
 4. **Détecter le profil** via `rules/site-profiles.json` (défaut : `vitrine`)
 5. Charger `rules/opquast-v5.json`, filtrer par `category: "static"`, exclure `regles_exclues` du profil, prioriser `regles_critiques`
-6. Si le DOM Analyzer est disponible (`scripts/bridge.js`), lancer l'analyse des règles `requires_dom` applicables au profil
-7. Pour chaque règle : appliquer `verification` comme méthode de test, `solution` pour les recommandations
-8. Analyser les pages définies dans `pages_a_analyser` du profil
-9. Générer rapport avec profil détecté (voir `references/format-sortie.md`)
-10. Proposer analyse complémentaire
+6. Pour une consultation de règles, une recherche large ou une donnée live, interroger l'API/MCP Opquast si disponible (`/checklist/extended/`, `/checklist/{number}/`) et conserver le fallback local
+7. Si le DOM Analyzer est disponible (`scripts/bridge.js`), lancer l'analyse des règles `requires_dom` applicables au profil
+8. Pour chaque règle : appliquer `verification` comme méthode de test, `solution` pour les recommandations
+9. Analyser les pages définies dans `pages_a_analyser` du profil
+10. Générer rapport avec profil détecté (voir `references/format-sortie.md`)
+11. Proposer analyse complémentaire
 
 ## Checklist finale
 
@@ -178,6 +207,7 @@ Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/e
 - [ ] HTML récupéré avec succès (ou limitation SPA signalée)
 - [ ] Profil de site détecté et mentionné dans le rapport
 - [ ] Règles filtrées selon profil et scope
+- [ ] Source des règles indiquée (`api` ou `local`) quand une consultation API/MCP est effectuée
 - [ ] Quick Wins listés en premier
 - [ ] Non-conformités groupées par priorité (Accessibilité > SEO > UX)
 - [ ] Règles non vérifiables (DOM) listées séparément
