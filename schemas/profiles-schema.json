@@ -4,6 +4,7 @@
   "title": "Site Profiles Schema",
   "description": "Schema for site-profiles.json",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "version",
     "profiles"
@@ -36,6 +37,7 @@
   "$defs": {
     "profile": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "name",
         "detection",
@@ -52,6 +54,7 @@
         },
         "detection": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "keywords": {
               "type": "array",
@@ -90,7 +93,8 @@
           "items": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 245
+            "maximum": 245,
+            "description": "Borne haute liée à la version V5 du référentiel, partagée avec rules-schema.json et audit-report.json"
           },
           "description": "Rule IDs that are critical for this profile"
         },
@@ -99,7 +103,8 @@
           "items": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 245
+            "maximum": 245,
+            "description": "Borne haute liée à la version V5 du référentiel, partagée avec rules-schema.json et audit-report.json"
           },
           "description": "Rule IDs not applicable for this profile"
         },

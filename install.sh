@@ -4,7 +4,7 @@
 # Opquast Skill - Script d'installation pour Claude Code
 # ============================================================
 
-set -e
+set -euo pipefail
 
 # Couleurs
 RED='\033[0;31m'
@@ -15,13 +15,37 @@ NC='\033[0m' # No Color
 
 # Répertoires
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${HOME:-}" ] || [ ! -d "$HOME" ]; then
+    echo "Erreur: HOME non défini ou inexistant. Installation annulée." >&2
+    exit 1
+fi
 SKILLS_DIR="$HOME/.claude/skills"
 SKILL_NAME="opquast"
+
+# Fichiers et répertoires livrés par l'installation en mode copie (r1-z02-055).
+# Exclus volontairement : .git, .gitignore, conductor/, deliberations/, docs/,
+# ralph-council/ (dont ralph-council/archive/, artefacts de délibération), qui sont des artefacts de développement.
+INSTALL_INCLUDE=(SKILL.md README.md install.sh rules schemas scripts references)
 
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Opquast Skill - Installation              ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
 echo ""
+
+# Le skill est déjà enregistré s'il vit sous un répertoire .claude/skills :
+# l'installer une seconde fois créerait deux skills nommés « opquast » et
+# rendrait la résolution indéterminée côté Claude Code.
+case "$SCRIPT_DIR" in
+    */.claude/skills/*)
+        echo -e "${YELLOW}Source déjà enregistrée comme skill : $SCRIPT_DIR${NC}"
+        echo "Installer une copie dans $SKILLS_DIR/$SKILL_NAME créerait un second skill nommé « $SKILL_NAME »."
+        if [ "${OPQUAST_INSTALL_FORCE:-0}" != "1" ]; then
+            echo "Installation annulée. Forcer avec OPQUAST_INSTALL_FORCE=1 si le doublon est voulu."
+            exit 1
+        fi
+        echo -e "${YELLOW}OPQUAST_INSTALL_FORCE=1 : poursuite malgré le doublon.${NC}"
+        ;;
+esac
 
 # Vérifier que le script est lancé depuis le bon répertoire
 if [ ! -f "$SCRIPT_DIR/SKILL.md" ]; then
@@ -39,6 +63,7 @@ fi
 # Vérifier si le skill existe déjà
 if [ -e "$SKILLS_DIR/$SKILL_NAME" ] || [ -L "$SKILLS_DIR/$SKILL_NAME" ]; then
     echo -e "${YELLOW}Le skill $SKILL_NAME existe déjà.${NC}"
+    REPLY=""
     if [ -t 0 ]; then
         read -p "Voulez-vous le remplacer ? (o/N) " -n 1 -r
         echo
@@ -61,6 +86,7 @@ echo "Mode d'installation :"
 echo "  1) Lien symbolique (recommandé pour le développement)"
 echo "  2) Copie complète (recommandé pour la production)"
 echo ""
+INSTALL_MODE=""
 if [ -t 0 ]; then
     read -p "Choix [1/2] : " -n 1 -r INSTALL_MODE
     echo ""
@@ -76,8 +102,14 @@ case $INSTALL_MODE in
         echo -e "${GREEN}✓ Lien créé: $SKILLS_DIR/$SKILL_NAME -> $SCRIPT_DIR${NC}"
         ;;
     2)
-        echo -e "${BLUE}Installation par copie...${NC}"
-        cp -R "$SCRIPT_DIR" "$SKILLS_DIR/$SKILL_NAME"
+        echo -e "${BLUE}Installation par copie (artefacts de développement exclus)...${NC}"
+        mkdir -p "$SKILLS_DIR/$SKILL_NAME"
+        for item in "${INSTALL_INCLUDE[@]}"; do
+            if [ -e "$SCRIPT_DIR/$item" ]; then
+                cp -R "$SCRIPT_DIR/$item" "$SKILLS_DIR/$SKILL_NAME/"
+            fi
+        done
+        find "$SKILLS_DIR/$SKILL_NAME" -type d \( -name __pycache__ -o -name node_modules \) -prune -exec rm -rf {} + 2>/dev/null || true
         echo -e "${GREEN}✓ Skill copié dans $SKILLS_DIR/$SKILL_NAME${NC}"
         ;;
     *)
@@ -98,7 +130,7 @@ else
 fi
 
 if [ -f "$SKILLS_DIR/$SKILL_NAME/rules/opquast-v5.json" ]; then
-    if RULE_COUNT=$(python3 -c "import json; print(len(json.load(open('$SKILLS_DIR/$SKILL_NAME/rules/opquast-v5.json'))['rules']))" 2>/dev/null); then
+    if RULE_COUNT=$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1], encoding="utf-8"))["rules"]))' "$SKILLS_DIR/$SKILL_NAME/rules/opquast-v5.json" 2>/dev/null); then
         echo -e "${GREEN}✓ $RULE_COUNT règles chargées${NC}"
     else
         echo -e "${RED}✗ Fichier de règles illisible (JSON invalide ou python3 absent)${NC}"
@@ -110,11 +142,44 @@ else
 fi
 
 if [ -d "$SKILLS_DIR/$SKILL_NAME/references/regles-v5" ]; then
-    REF_COUNT=$(ls -1 "$SKILLS_DIR/$SKILL_NAME/references/regles-v5" | wc -l | tr -d ' ')
-    echo -e "${GREEN}✓ $REF_COUNT fichiers de référence${NC}"
+    REF_COUNT=$(find "$SKILLS_DIR/$SKILL_NAME/references/regles-v5" -maxdepth 1 -type f -name 'regle-*.md' | wc -l | tr -d ' ')
+    if [ "$REF_COUNT" -lt 1 ]; then
+        echo -e "${RED}✗ Aucune fiche regle-*.md dans references/regles-v5 (copie incomplète)${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ $REF_COUNT fiches de référence${NC}"
 else
     echo -e "${RED}✗ Références manquantes${NC}"
     exit 1
+fi
+
+# --- Dépendances d'exécution et contrôle de cohérence (r1-z02-056)
+echo ""
+echo -e "${BLUE}Vérification des dépendances...${NC}"
+
+if command -v python3 >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ python3 présent${NC}"
+else
+    echo -e "${RED}✗ python3 absent : scripts/validate.py et scripts/sync-rules-from-api.py sont inutilisables${NC}"
+    exit 1
+fi
+
+if command -v node >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ node présent${NC}"
+else
+    echo -e "${YELLOW}! node absent : l'analyse DOM (scripts/bridge.js) sera indisponible${NC}"
+fi
+
+if python3 -c 'import jsonschema' >/dev/null 2>&1; then
+    echo -e "${BLUE}Contrôle de cohérence (scripts/validate.py)...${NC}"
+    if python3 "$SKILLS_DIR/$SKILL_NAME/scripts/validate.py" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ Règles et profils cohérents${NC}"
+    else
+        echo -e "${RED}✗ scripts/validate.py signale des incohérences. Relancer sans redirection pour le détail.${NC}"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}! module jsonschema absent : contrôle de cohérence non exécuté (pip install jsonschema)${NC}"
 fi
 
 # Succès

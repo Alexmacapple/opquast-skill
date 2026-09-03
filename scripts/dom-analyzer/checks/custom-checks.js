@@ -3,34 +3,25 @@
  * Implements 8 rules that cannot be covered by axe-core
  */
 
-import { CUSTOM_CHECKS, CONFIDENCE_LEVELS } from '../utils/opquast-mapper.js';
+import { CUSTOM_CHECKS, createCustomCheckResult } from '../utils/opquast-mapper.js';
 
 /**
  * Format a violation result in standard Opquast format
  * PRD-002: Includes confidence scoring for custom checks
+ * Audit ShipGuard 2026-09-03 (r1-z03-039) : la structure était réimplémentée ici au lieu d'appeler
+ * createCustomCheckResult, seule source du format prévue par PRD-002.
  */
 function formatViolation(opquastId, nodes) {
   const check = CUSTOM_CHECKS[opquastId];
   if (!check || nodes.length === 0) return null;
 
-  const confidenceInfo = CONFIDENCE_LEVELS['custom-check'];
-
-  return {
-    opquastId,
-    title: check.title,
-    severity: check.severity,
-    // PRD-002: Confidence scoring
-    source: 'custom-check',
-    confidence: confidenceInfo.confidence,
-    confidence_label: confidenceInfo.label,
-    // Check details
-    checkType: check.type,
+  return createCustomCheckResult(opquastId, {
     nodes: nodes.map(node => ({
       html: node.html,
       target: node.target || [],
       failureSummary: node.failureSummary || check.title
     }))
-  };
+  });
 }
 
 // ========== CSS Checks (139, 191, 237) ==========
@@ -43,7 +34,10 @@ async function checkUnderlineReserved(page) {
   const violations = await page.evaluate(() => {
     const results = [];
     // Check all text elements that are not links
-    const selector = 'p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label';
+    // Sélecteur élargi après l'audit (r1-z03-026) : strong, em, figcaption, dt, dd, blockquote, button,
+    // summary et caption étaient ignorés. Limite connue et non couverte ici : un soulignement produit par
+    // border-bottom ou par un pseudo-élément ::after reste invisible pour getComputedStyle.
+    const selector = 'p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, strong, em, b, i, small, figcaption, dt, dd, blockquote, button, summary, caption';
     document.querySelectorAll(selector).forEach(el => {
       const style = getComputedStyle(el);
       if (style.textDecorationLine.includes('underline')) {
@@ -130,18 +124,47 @@ async function checkCopyNotBlocked(page) {
 async function checkContextMenuNotBlocked(page) {
   const violations = await page.evaluate(() => {
     const results = [];
-    // Check for oncontextmenu attribute
-    document.querySelectorAll('[oncontextmenu]').forEach(el => {
-      const handler = el.getAttribute('oncontextmenu');
-      // Check if it returns false or prevents default
-      if (handler && (handler.includes('return false') || handler.includes('preventDefault'))) {
-        results.push({
-          html: el.outerHTML.slice(0, 200),
-          target: [el.tagName.toLowerCase()],
-          failureSummary: `Context menu is blocked via oncontextmenu`
-        });
+    const seen = new Set();
+
+    const report = (el, failureSummary) => {
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      results.push({
+        html: el.outerHTML.slice(0, 200),
+        target: [el.tagName.toLowerCase()],
+        failureSummary
+      });
+    };
+
+    const inlineTargets = Array.from(document.querySelectorAll('[oncontextmenu]'));
+
+    // Détection effective du blocage (audit ShipGuard 2026-09-03, r1-z03-025) : la forme moderne
+    // addEventListener('contextmenu', e => e.preventDefault()) et les handlers inline qui délèguent à une
+    // fonction externe sont invisibles depuis le DOM. On déclenche un événement annulable et on observe
+    // s'il est annulé. Sondes bornées : le document, les porteurs d'un attribut inline, puis les 20
+    // premières images (cible classique du blocage du clic droit).
+    const probes = [
+      document.body,
+      ...inlineTargets,
+      ...Array.from(document.querySelectorAll('img')).slice(0, 20)
+    ];
+
+    for (const el of probes) {
+      if (!el) continue;
+      const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+      if (!el.dispatchEvent(event)) {
+        report(el, 'Context menu is blocked: the contextmenu event is cancelled');
       }
-    });
+    }
+
+    // Filet statique : un attribut inline explicitement bloquant, même si l'événement n'a pas pu être annulé
+    for (const el of inlineTargets) {
+      const handler = el.getAttribute('oncontextmenu');
+      if (handler && (handler.includes('return false') || handler.includes('preventDefault'))) {
+        report(el, 'Context menu is blocked via oncontextmenu');
+      }
+    }
+
     return results;
   });
 
@@ -158,6 +181,9 @@ async function checkFocusVisible(page) {
   const focusableSelector = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
   const elements = await page.locator(focusableSelector).all();
   const violations = [];
+
+  // Ce check déplace le focus : mémoriser l'élément actif pour le rétablir ensuite (audit ShipGuard, r1-z03-027)
+  const previouslyFocused = await page.evaluateHandle(() => document.activeElement);
 
   // Limit to first 30 elements for performance (la limite est signalée sur stderr quand elle s'applique)
   const toCheck = elements.slice(0, 30);
@@ -191,7 +217,11 @@ async function checkFocusVisible(page) {
       });
 
       // Check if there's a visible focus indicator
-      const hasOutline = afterStyles.outline !== 'none' && afterStyles.outlineWidth !== '0px';
+      // Audit ShipGuard 2026-09-03 (r1-z03-045) : beforeStyles.outline et outlineWidth étaient collectés puis
+      // jamais comparés, si bien qu'un outline permanent (non spécifique au focus) passait pour un indicateur valide.
+      const outlineChanged = afterStyles.outline !== beforeStyles.outline
+        || afterStyles.outlineWidth !== beforeStyles.outlineWidth;
+      const hasOutline = afterStyles.outline !== 'none' && afterStyles.outlineWidth !== '0px' && outlineChanged;
       const hasBoxShadow = afterStyles.boxShadow !== 'none' && afterStyles.boxShadow !== beforeStyles.boxShadow;
       const hasBorderChange = afterStyles.border !== beforeStyles.border;
 
@@ -208,6 +238,18 @@ async function checkFocusVisible(page) {
       inconclusive++;
     }
   }
+
+  // Restauration de l'état du document avant de rendre la main aux autres checks (r1-z03-027)
+  await previouslyFocused
+    .evaluate(el => {
+      if (el && typeof el.focus === 'function') {
+        el.focus();
+      } else if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+    })
+    .catch(() => {});
+  await previouslyFocused.dispose().catch(() => {});
 
   if (inconclusive > 0) {
     console.error(`[custom-checks] règle 165 : ${inconclusive} élément(s) non évaluable(s) sur ${toCheck.length} (ignorés, pas conformes)`);
@@ -230,7 +272,11 @@ async function checkKeyboardNavigable(page) {
     const interactiveSelector = 'a[href], button, input, select, textarea, [onclick], [role="button"], [role="link"]';
     document.querySelectorAll(interactiveSelector).forEach(el => {
       const tabindex = el.getAttribute('tabindex');
-      const isHidden = el.offsetParent === null;
+
+      // offsetParent === null valait aussi pour position:fixed et pour body (audit ShipGuard, r1-z03-024) :
+      // barres de navigation fixes, boutons flottants et bandeaux de consentement échappaient au contrôle.
+      const style = getComputedStyle(el);
+      const isHidden = style.display === 'none' || style.visibility === 'hidden' || el.getClientRects().length === 0;
 
       // Skip hidden elements
       if (isHidden) return;
@@ -292,27 +338,44 @@ async function checkTabOrder(page) {
  */
 async function checkTargetSize(page) {
   const interactiveSelector = 'a[href], button, input:not([type="hidden"]), select, [role="button"], [onclick]';
-  const elements = await page.locator(interactiveSelector).all();
+
+  // Mesure groupée en une seule évaluation (audit ShipGuard 2026-09-03, r1-z03-028) : la boucle précédente
+  // coûtait un boundingBox() plus deux evaluate() par élément, soit des milliers d'allers-retours CDP sur une
+  // page riche. Seuils, sélecteur et éléments inspectés sont inchangés.
+  const measured = await page.evaluate(selector => {
+    return Array.from(document.querySelectorAll(selector)).map(el => {
+      const measurable = el.getClientRects().length > 0;
+      const rect = measurable ? el.getBoundingClientRect() : null;
+
+      return {
+        measurable,
+        width: rect ? rect.width : 0,
+        height: rect ? rect.height : 0,
+        html: el.outerHTML.slice(0, 200),
+        tagName: el.tagName.toLowerCase()
+      };
+    });
+  }, interactiveSelector);
+
   const violations = [];
   let inconclusiveTargets = 0;
 
-  for (const el of elements) {
-    try {
-      const box = await el.boundingBox();
-      if (box && (box.width < 44 || box.height < 44)) {
-        // Skip very small elements that might be icons inside larger clickable areas
-        if (box.width < 10 || box.height < 10) continue;
-
-        const html = await el.evaluate(e => e.outerHTML.slice(0, 200));
-        violations.push({
-          html,
-          target: [await el.evaluate(e => e.tagName.toLowerCase())],
-          failureSummary: `Target size is ${Math.round(box.width)}x${Math.round(box.height)}px (minimum: 44x44px)`
-        });
-      }
-    } catch (e) {
-      // Élément non mesurable : compté comme non évaluable plutôt que conforme (r1-z03-021)
+  for (const element of measured) {
+    // Élément non mesurable : compté comme non évaluable plutôt que conforme (r1-z03-021)
+    if (!element.measurable) {
       inconclusiveTargets++;
+      continue;
+    }
+
+    if (element.width < 44 || element.height < 44) {
+      // Skip very small elements that might be icons inside larger clickable areas
+      if (element.width < 10 || element.height < 10) continue;
+
+      violations.push({
+        html: element.html,
+        target: [element.tagName],
+        failureSummary: `Target size is ${Math.round(element.width)}x${Math.round(element.height)}px (minimum: 44x44px)`
+      });
     }
   }
 
@@ -333,35 +396,38 @@ async function checkTargetSize(page) {
 export async function runCustomChecks(page) {
   const results = [];
 
-  // CSS Checks
-  const cssChecks = await Promise.all([
+  // Ordonnancement issu de l'audit ShipGuard 2026-09-03 (r1-z03-027) : checkFocusVisible déplaçait le focus
+  // pendant que les autres checks lisaient les styles calculés de la même page. Les lectures pures du DOM
+  // sont désormais groupées d'abord, les checks qui modifient l'état du document passent ensuite, seuls.
+
+  // 1. Lectures pures du DOM, sans effet de bord : parallélisables sans interférence
+  const domChecks = await Promise.all([
     checkUnderlineReserved(page),
     checkTextNotJustified(page),
-    checkCopyNotBlocked(page)
-  ]);
-  results.push(...cssChecks.filter(Boolean));
-
-  // Attribute Check
-  const attrCheck = await checkContextMenuNotBlocked(page);
-  if (attrCheck) results.push(attrCheck);
-
-  // Focus/Keyboard Checks
-  const focusChecks = await Promise.all([
-    checkFocusVisible(page),
+    checkCopyNotBlocked(page),
     checkKeyboardNavigable(page),
     checkTabOrder(page)
   ]);
-  results.push(...focusChecks.filter(Boolean));
+  results.push(...domChecks.filter(Boolean));
 
-  // Target Size Check
+  // 2. Mesure de géométrie : lecture seule, mais après les lectures de style
   const targetCheck = await checkTargetSize(page);
   if (targetCheck) results.push(targetCheck);
+
+  // 3. Déclenche un événement contextmenu : exécuté seul
+  const attrCheck = await checkContextMenuNotBlocked(page);
+  if (attrCheck) results.push(attrCheck);
+
+  // 4. Déplace le focus : exécuté seul, en dernier, focus restauré par le check lui-même
+  const focusCheck = await checkFocusVisible(page);
+  if (focusCheck) results.push(focusCheck);
 
   return results;
 }
 
 /**
  * Run a specific custom check by Opquast ID
+ * API publique programmatique : non appelée par la CLI, couverte par les tests (r1-z03-038)
  * @param {Page} page - Playwright page object
  * @param {number} opquastId - Opquast rule ID
  * @returns {Promise<Object|null>} - Violation result or null

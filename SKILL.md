@@ -44,7 +44,7 @@ Parser `$ARGUMENTS` pour extraire :
 | URL + `--rubrique <r>` | Analyse par rubrique | `/opquast https://example.com --rubrique formulaires` |
 | `--regle <N>` | Consulter une règle | `/opquast --regle 42` |
 | `--list [--page N]` | Liste paginée | `/opquast --list --page 3` |
-| `--search <mot>` | Recherche par mot-clé | `/opquast --search image` |
+| `--search <mot>` | Recherche par mot-clé dans le titre des règles | `/opquast --search image` |
 | `--severity <s>` | Filtrer par sévérité | `/opquast --severity critical` |
 
 Valeurs acceptées : voir `references/rubriques-dimensions.md`
@@ -78,6 +78,7 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 ## Ressources
 
 - `rules/opquast-v5.json` : 245 règles (id, title, category, rubrique, tags, phases, opquast_id, objectives, solution, verification, severity). Titres, tags, rubriques, phases et identifiants proviennent de l'API ; objectifs, solutions et vérifications proviennent des fiches `references/regles-v5/`
+- Champ facultatif `static_verification_method` : méthode de vérification CSS déterministe, présente sur 3 règles seulement (139 soulignement, 191 texte justifié, 237 sélection bloquée). Quand il existe, l'appliquer en priorité sur `verification` — ce sont les Quick Wins CSS. Son absence n'est jamais une anomalie
 - `scripts/sync-rules-from-api.py` : alignement du fichier de règles sur l'API (`--check`, `--dry-run`, `--write`, `--full`, `--rules <copie>`)
 - `scripts/tests/` : tests pytest des scripts Python ; `scripts/dom-analyzer/tests/` et `scripts/static-analyzer/tests/` : tests vitest ; `scripts/audit-mappings.js` : cohérence stricte du mapper avec le référentiel
 - `rules/site-profiles.json` : Détection et filtrage par type de site (6 profils)
@@ -119,9 +120,13 @@ Le fichier local et l'API doivent rester alignés. Contrôle de dérive (code re
 python3 scripts/sync-rules-from-api.py --check
 ```
 
-Mise à jour des titres, tags, rubriques, phases et identifiants : `--write`. Codes de retour : 0 aligné, 1 dérive ou anomalie (écriture refusée : titre vide, doublon, règle absente d'un côté, valeur hors schéma), 2 API injoignable ou usage. Après une mise à jour, relancer `python3 scripts/validate.py` (accepte `--rules <fichier>` pour valider une copie).
+Mise à jour des titres, tags, rubriques, phases et identifiants : `--write`. Codes de retour : 0 aligné, écrit, ou `--dry-run` mené à son terme ; 1 dérive ou anomalie (écriture refusée : titre vide, doublon, règle absente d'un côté, valeur hors schéma) ; 2 API injoignable, fichier illisible ou erreur d'usage. Après une mise à jour, relancer `python3 scripts/validate.py` (accepte `--rules <fichier>` pour valider une copie).
 
-Source de référence des corps de règles (`objectives`, `solution`, `verification`) : les fiches `references/regles-v5/`, injectées par `scripts/enrich-rules.py`. `--full` (clé API requise) les remplace explicitement par la checklist étendue et trace `enrichment_source: api` dans le fichier ; ne pas mélanger les deux sans le décider.
+`--dry-run` retourne toujours 0, y compris quand des anomalies sont détectées : c'est un mode d'affichage, pas un contrôle. Il annonce alors explicitement que `--write` refusera d'écrire. Pour un contrôle automatisé, utiliser `--check`.
+
+Le refus d'écriture sur anomalie est délibéré : `rules/opquast-v5.json` est la source de vérité unique du skill hors ligne, et une anomalie signale une divergence de données à comprendre avant de la propager. Il n'existe volontairement aucun `--force`. Pour inspecter ou expérimenter malgré une anomalie, travailler sur une copie : `--write --rules copie.json`.
+
+Source de référence des corps de règles (`objectives`, `solution`, `verification`) : les fiches `references/regles-v5/`, injectées par `scripts/enrich-rules.py` (accepte `--rules <fichier>` pour travailler sur une copie ; il réécrit le fichier de règles, ne pas le lancer pendant un audit). `--full` (clé API requise) les remplace explicitement par la checklist étendue et trace `enrichment_source: api` dans le fichier ; ne pas mélanger les deux sans le décider.
 
 Tests : `python3 -m pytest scripts/tests -q` ; `cd scripts/dom-analyzer && npm test` ; `cd scripts/static-analyzer && npm test` ; `cd scripts && npm run audit:mappings`.
 
@@ -139,6 +144,12 @@ Lors de l'analyse, détecter automatiquement le profil du site via `rules/site-p
 | `newsletter` | formulaire newsletter, subscribe |
 
 Pour chaque profil, le fichier définit `rubriques_prioritaires`, `regles_critiques`, `regles_exclues` et `pages_a_analyser`. `detection_priority` fixe l'ordre d'essai des profils (un site e-commerce avec newsletter est classé e-commerce) et `fallback_profile` le profil appliqué à défaut : `vitrine`, qui exclut les 39 règles E-Commerce.
+
+Précédence des deux leviers de cadrage, dans cet ordre :
+
+1. `regles_exclues` retire les règles hors périmètre du profil. Aucune exception
+2. `regles_critiques` est une liste nominative qui prime sur `rubriques_prioritaires` : ces règles sont toujours auditées et remontées en tête, y compris quand leur rubrique n'est pas prioritaire. Le profil `vitrine` porte ainsi 11 règles critiques en Formulaires et Liens, le profil `blog` 5 en Serveur et performances
+3. `rubriques_prioritaires` ordonne le reste des règles static, sans jamais servir de filtre d'exclusion
 
 ## Format de sortie
 
@@ -174,7 +185,7 @@ Rapport complet et template : voir `references/format-sortie.md`
 ```
 /opquast --search formulaire
 
-# 30 règles contenant "formulaire"
+# 15 règles dont le titre contient « formulaire »
 | ID | Titre | Sévérité |
 |----|-------|----------|
 | 69 | Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre. | critical |
@@ -216,7 +227,7 @@ Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/e
 5. Charger `rules/opquast-v5.json`, filtrer par `category: "static"`, exclure `regles_exclues` du profil, prioriser `regles_critiques`
 6. Pour une consultation de règles, une recherche large ou une donnée live, interroger l'API/MCP Opquast si disponible (`/checklist/extended/`, `/checklist/{number}/`) et conserver le fallback local
 7. Si le DOM Analyzer est disponible (`scripts/bridge.js`), lancer l'analyse des règles `requires_dom` applicables au profil
-8. Pour chaque règle : appliquer `verification` comme méthode de test, `solution` pour les recommandations
+8. Pour chaque règle : appliquer `static_verification_method` s'il est présent, sinon `verification`, comme méthode de test ; `solution` pour les recommandations
 9. Analyser les pages définies dans `pages_a_analyser` du profil
 10. Générer rapport avec profil détecté (voir `references/format-sortie.md`)
 11. Proposer analyse complémentaire

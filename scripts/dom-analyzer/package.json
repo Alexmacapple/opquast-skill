@@ -1,11 +1,12 @@
 {
   "name": "opquast-dom-analyzer",
   "version": "1.0.0",
+  "private": true,
   "description": "DOM analyzer for Opquast rules requiring headless browser (Playwright + axe-core)",
   "main": "index.js",
   "type": "module",
   "bin": {
-    "opquast-dom": "./index.js"
+    "opquast-dom": "index.js"
   },
   "scripts": {
     "analyze": "node index.js",
@@ -29,10 +30,10 @@
     "playwright": "^1.41.0"
   },
   "devDependencies": {
-    "vitest": "^1.2.0",
-    "@vitest/coverage-v8": "^1.2.0"
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "^18.0.0 || >=20.0.0"
   }
 }

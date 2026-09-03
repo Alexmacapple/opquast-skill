@@ -7,7 +7,7 @@
 
 **URL** : [url]
 **Date** : [date]
-**Profil detecte** : [e-commerce|saas|blog|vitrine|institutionnel]
+**Profil detecte** : [e-commerce|saas|blog|institutionnel|newsletter|vitrine]
 **Scope** : [thematique/rubrique ou "adapte au profil"]
 
 ## Couverture
@@ -19,7 +19,7 @@
 | Non verifiables (DOM) | Z |
 | Non applicables | W |
 
-## Quick Wins
+## Quick wins
 
 | Regle | Probleme | Solution | Impact |
 |-------|----------|----------|--------|
@@ -62,7 +62,7 @@ Les regles suivantes necessitent une analyse DOM/CSS : [liste]
 | Non conformes | 8 |
 | Non verifiables (DOM) | 33 |
 
-## Quick Wins
+## Quick wins
 | Regle | Probleme | Solution | Impact |
 |-------|----------|----------|--------|
 | 191 | Texte justifie detecte | Supprimer `text-align: justify` | Accessibilite |

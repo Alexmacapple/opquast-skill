@@ -1,6 +1,7 @@
 /**
  * Tests for Opquast mapper utilities
- * Tests all mapping functions and validates the 25 axe-core rule mappings
+ * Tests all mapping functions and validates the 24 axe-core rule mappings
+ * (audit ShipGuard 2026-09-04, r1-z04-046 : « 25 » était périmé, tabindex ayant été retiré)
  */
 
 import { readFileSync } from 'fs';
@@ -35,9 +36,11 @@ const createMockViolation = (id, overrides = {}) => ({
   ...overrides
 });
 
-const rulesById = Object.fromEntries(
-  JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'rules', 'opquast-v5.json'), 'utf-8')).rules.map(r => [r.id, r])
-);
+const rulesJson = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'rules', 'opquast-v5.json'), 'utf-8'));
+const rulesById = Object.fromEntries(rulesJson.rules.map(r => [r.id, r]));
+// Borne dérivée du référentiel, jamais figée : une version à 250 règles ne doit pas faire échouer
+// un mapping légitime au mauvais endroit (audit ShipGuard 2026-09-04, r1-z04-048)
+const MAX_OPQUAST_ID = rulesJson.total_rules ?? rulesJson.rules.length;
 const sev = (id) => rulesById[id].severity;
 const title = (id) => rulesById[id].title;
 
@@ -60,10 +63,10 @@ describe('AXE_TO_OPQUAST Mapping', () => {
       });
     });
 
-    it('all opquastIds should be valid (1-245)', () => {
+    it('all opquastIds should be valid (1 to the reference total)', () => {
       Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
         expect(mapping.opquastId).toBeGreaterThanOrEqual(1);
-        expect(mapping.opquastId).toBeLessThanOrEqual(245);
+        expect(mapping.opquastId).toBeLessThanOrEqual(MAX_OPQUAST_ID);
       });
     });
 
@@ -125,7 +128,9 @@ describe('AXE_TO_OPQUAST Mapping', () => {
     });
   });
 
-  describe('Phase 4 additions (17 new mappings)', () => {
+  // Audit ShipGuard 2026-09-04 (r1-z04-047) : le libellé annonçait 17 ajouts pour 16 entrées.
+  // Le même « 17 new mappings » subsiste dans utils/opquast-mapper.js ligne 109 (hors périmètre).
+  describe('Phase 4 additions (16 new mappings)', () => {
     const phase4Mappings = [
       ['button-name', 69, sev(69)],
       ['frame-title', 120, sev(120)],
@@ -144,6 +149,11 @@ describe('AXE_TO_OPQUAST Mapping', () => {
       ['duplicate-id', 236, sev(236)],
       ['list', 235, sev(235)]
     ];
+
+    it('should list exactly 16 Phase 4 mappings', () => {
+      expect(phase4Mappings).toHaveLength(16);
+      expect(Object.keys(AXE_TO_OPQUAST).length).toBe(8 + phase4Mappings.length);
+    });
 
     phase4Mappings.forEach(([axeRule, expectedOpquastId, expectedSeverity]) => {
       it(`should map ${axeRule} to Opquast ${expectedOpquastId}`, () => {
@@ -351,7 +361,7 @@ describe('getSupportedOpquastRules', () => {
     rules.forEach(rule => {
       expect(typeof rule).toBe('number');
       expect(rule).toBeGreaterThanOrEqual(1);
-      expect(rule).toBeLessThanOrEqual(245);
+      expect(rule).toBeLessThanOrEqual(MAX_OPQUAST_ID);
     });
   });
 

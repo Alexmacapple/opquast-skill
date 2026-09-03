@@ -106,7 +106,7 @@ export const AXE_TO_OPQUAST = {
     notes: 'Pas de saut de niveau'
   },
 
-  // ========== Phase 4 additions (17 new mappings) ==========
+  // ========== Phase 4 additions (16 new mappings) ==========
 
   // Buttons - verified axe-core rule
   'button-name': {
@@ -157,6 +157,10 @@ export const AXE_TO_OPQUAST = {
   },
 
   // Table cells have headers - verified axe-core rule
+  // Audit ShipGuard 2026-09-03 (r1-z03-042) : règle marquée « experimental » dans axe-core (4.13.0 installée,
+  // dépendance déclarée en ^4.8.0). Conservée pour ne pas perdre la couverture d'Opquast 242, mais surveillée :
+  // tests/z03-axe-rule-catalogue.test.js échoue si elle disparaît ou change de statut. Retirer la règle est un
+  // arbitrage couverture / faux positifs qui relève d'une décision humaine.
   'td-has-header': {
     opquastId: 242,
     title: 'Les cellules des tableaux de données sont reliées à leurs entêtes.',
@@ -221,6 +225,11 @@ export const AXE_TO_OPQUAST = {
   },
 
   // Duplicate ID - verified axe-core rule
+  // Audit ShipGuard 2026-09-03 (r1-z03-041) : règle marquée « deprecated » dans axe-core. Vérifié sur la version
+  // installée (4.13.0) : elle continue de s'exécuter et de remonter ses violations quand elle est demandée
+  // nommément via AxeBuilder.withRules. Conservée car c'est la seule qui couvre l'unicité de TOUS les id
+  // (duplicate-id-aria ne couvre que les id référencés par ARIA) ; sa disparition ferait échouer
+  // tests/z03-axe-rule-catalogue.test.js au lieu de réduire la couverture en silence.
   'duplicate-id': {
     opquastId: 236,
     title: 'Chaque identifiant HTML n\'est utilisé qu\'une seule fois par page.',
@@ -388,6 +397,7 @@ export function getSupportedOpquastRules() {
 /**
  * Create a custom check result with confidence scoring
  * PRD-002: Provides consistent format for custom Playwright checks
+ * Seule source du format des violations custom depuis l'audit (r1-z03-039) : checks/custom-checks.js l'appelle.
  * @param {number} opquastId - Opquast rule ID
  * @param {Object} options - Check result options
  * @returns {Object} - Formatted result with confidence
@@ -416,6 +426,7 @@ export function createCustomCheckResult(opquastId, options = {}) {
 
 /**
  * Get confidence info for a source type
+ * API publique programmatique : non appelée par la CLI, couverte par les tests (r1-z03-038)
  * @param {string} source - Source type (axe-core, custom-check, heuristic, llm, manual)
  * @returns {Object} - Confidence info
  */

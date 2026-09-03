@@ -103,29 +103,42 @@
       }
     },
     "enriched": {
+      "type": "boolean",
       "description": "Champs objectives/solution/verification présents"
     },
     "enriched_date": {
+      "type": "string",
       "description": "Date d'enrichissement"
     },
     "enrichment_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
       "description": "Champs enrichis"
+    },
+    "enrichment_source": {
+      "type": "string",
+      "description": "Origine des corps de règles : fiches references/regles-v5 ou api"
     }
   },
   "$defs": {
     "rule": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "id",
         "title",
         "category",
-        "rubrique"
+        "rubrique",
+        "severity"
       ],
       "properties": {
         "id": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 245
+          "maximum": 245,
+          "description": "Borne haute liée à la version V5 du référentiel (total_rules). À modifier de front avec profiles-schema.json et audit-report.json ; l'écart est détecté par scripts/tests/test_schemas.py"
         },
         "title": {
           "type": "string",

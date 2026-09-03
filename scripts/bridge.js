@@ -75,7 +75,8 @@ export async function runUnifiedAnalysis(url, options = {}) {
       heuristic: null
     },
     summary: {
-      totalRules: 245,
+      // Dérivé du référentiel après chargement (r1-z04-013) ; reste null si le référentiel est illisible
+      totalRules: null,
       domRulesChecked: 0,
       staticRulesChecked: 0,
       staticRulesApplicable: 0,
@@ -88,6 +89,8 @@ export async function runUnifiedAnalysis(url, options = {}) {
     // Load rules database
     const rulesDb = await loadOpquastRules();
     let rules = rulesDb.rules;
+    // Le total vient du référentiel, jamais d'une constante recopiée (r1-z04-013)
+    results.summary.totalRules = rulesDb.total_rules ?? rules.length;
 
     // Filter by theme if specified
     if (theme) {
@@ -199,7 +202,8 @@ export async function runUnifiedAnalysis(url, options = {}) {
         },
         heuristic: {
           checked: heuristicCount,
-          validators: 10,
+          // Nombre de validateurs réellement déclarés, pas une constante recopiée (r1-z04-014)
+          validators: results.analysis.heuristic?.validators ?? getValidatorInfo().validators,
           note: 'Deterministic HTML pattern checks'
         },
         static: {
@@ -236,9 +240,10 @@ export async function runUnifiedAnalysis(url, options = {}) {
 
 /**
  * Format unified results for console
+ * Exportée pour être testable sans passer par le CLI (r1-z04-021)
  * @param {Object} results
  */
-function formatResults(results) {
+export function formatResults(results) {
   console.log('\n================================================');
   console.log('  Opquast Unified Analysis (Bridge)');
   console.log('================================================\n');
@@ -261,7 +266,8 @@ function formatResults(results) {
     console.log(`Heuristic Validators: ${results.summary.coverage.heuristic.checked}/${results.summary.coverage.heuristic.validators} (deterministic)`);
   }
   if (results.summary.coverage.static) {
-    console.log(`Static Rules: ${results.summary.coverage.static.remaining || results.summary.coverage.static.applicable} remaining (LLM required)`);
+    // ?? et non || : 0 règle restante doit s'afficher 0, pas le total applicable (r1-z04-015)
+    console.log(`Static Rules: ${results.summary.coverage.static.remaining ?? results.summary.coverage.static.applicable} remaining (LLM required)`);
   }
   if (results.summary.coverage.interaction) {
     console.log(`Interaction Rules: ${results.summary.coverage.interaction.count} (manual testing)`);
@@ -269,7 +275,10 @@ function formatResults(results) {
 
   // Violations
   if (results.summary.violations.length > 0) {
-    console.log(`\n--- Violations (${results.summary.violations.length}) ---\n`);
+    // Le compteur agrège les deux lanes : le titre le dit explicitement (r1-z04-019)
+    const domCount = results.summary.violations.filter(v => v.lane !== 'static-heuristic').length;
+    const heuristicCount = results.summary.violations.length - domCount;
+    console.log(`\n--- Violations (${results.summary.violations.length}: ${domCount} DOM, ${heuristicCount} static heuristics) ---\n`);
 
     // Group by severity
     const bySeverity = {
@@ -283,13 +292,21 @@ function formatResults(results) {
         console.log(`[${severity.toUpperCase()}] (${violations.length})`);
         for (const v of violations) {
           console.log(`  - Règle ${v.opquastId}: ${v.title}`);
-          console.log(`    Elements: ${v.nodes?.length || 0}`);
+          // Les violations heuristiques n'ont pas de nodes mais un champ details (r1-z04-020)
+          if (v.nodes?.length) {
+            console.log(`    Elements: ${v.nodes.length}`);
+          } else if (v.details) {
+            console.log(`    Details: ${v.details}`);
+          } else {
+            console.log('    Elements: 0');
+          }
         }
         console.log('');
       }
     }
   } else {
-    console.log('\n✓ No DOM violations found\n');
+    // Le compteur couvre DOM et heuristiques : le message d'absence aussi (r1-z04-019)
+    console.log('\n✓ No violations found (DOM analysis and static heuristics)\n');
   }
 
   // Guidance for static analysis
@@ -298,6 +315,43 @@ function formatResults(results) {
     console.log(`${results.analysis.static.totalStaticRules} static rules can be checked via WebFetch.`);
     console.log('Use: /opquast <url> for full analysis including static rules.\n');
   }
+}
+
+/**
+ * Analyse les arguments CLI d'une invocation d'analyse (hors --help et --info).
+ * Exportée pour être testable sans lancer d'analyse (r1-z04-021).
+ *
+ * @param {string[]} args - process.argv.slice(2)
+ * @returns {{url: string|undefined, options: Object, errors: string[]}}
+ */
+export function parseCliOptions(args) {
+  const errors = [];
+  const url = args[0];
+
+  // Sans garde, `node scripts/bridge.js --json` prend « --json » pour l'URL (r1-z04-016)
+  if (!/^https?:\/\//i.test(url ?? '')) {
+    errors.push(`URL invalide : « ${url ?? ''} ». Une adresse http:// ou https:// est attendue en premier argument.`);
+  }
+
+  const options = {
+    domOnly: args.includes('--dom-only'),
+    theme: null,
+    rubrique: null
+  };
+
+  // Un drapeau ne peut pas servir de valeur : --theme --json vidait silencieusement le jeu de règles (r1-z04-017)
+  for (const [flag, key] of [['--theme', 'theme'], ['--rubrique', 'rubrique']]) {
+    const idx = args.indexOf(flag);
+    if (idx === -1) continue;
+    const value = args[idx + 1];
+    if (value === undefined || value.startsWith('--')) {
+      errors.push(`${flag} attend une valeur (reçu : ${value === undefined ? 'aucun argument' : `« ${value} »`}).`);
+      continue;
+    }
+    options[key] = value;
+  }
+
+  return { url, options, errors };
 }
 
 /**
@@ -343,21 +397,13 @@ Examples:
     process.exit(0);
   }
 
-  const url = args[0];
-  const options = {
-    domOnly: args.includes('--dom-only'),
-    theme: null,
-    rubrique: null
-  };
+  const { url, options, errors } = parseCliOptions(args);
 
-  const themeIdx = args.indexOf('--theme');
-  if (themeIdx !== -1 && args[themeIdx + 1]) {
-    options.theme = args[themeIdx + 1];
-  }
-
-  const rubriqueIdx = args.indexOf('--rubrique');
-  if (rubriqueIdx !== -1 && args[rubriqueIdx + 1]) {
-    options.rubrique = args[rubriqueIdx + 1];
+  if (errors.length > 0) {
+    errors.forEach(message => console.error(`[Bridge] ${message}`));
+    console.error('Utilisation : node scripts/bridge.js <url> [--json] [--dom-only] [--theme <nom>] [--rubrique <nom>]');
+    process.exitCode = 2;
+    return;
   }
 
   const results = await runUnifiedAnalysis(url, options);
@@ -374,5 +420,11 @@ Examples:
 
 // Run only when invoked as a CLI, never on import (r1-z04-001)
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  // Sans .catch, un rejet de formatResults ou de JSON.stringify termine le processus sur une
+  // trace brute d'unhandledRejection, sans message exploitable (r1-z04-018)
+  main().catch((error) => {
+    console.error(`[Bridge] Erreur inattendue : ${error?.message ?? error}`);
+    if (error?.stack) console.error(error.stack);
+    process.exitCode = 2;
+  });
 }

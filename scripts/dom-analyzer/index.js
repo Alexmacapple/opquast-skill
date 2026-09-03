@@ -19,6 +19,27 @@ import { getSupportedOpquastRules } from './utils/opquast-mapper.js';
 const loadAnalyzer = () => import('./lib/analyzer.js');
 
 /**
+ * Validation stricte de l'URL (audit ShipGuard 2026-09-03, r1-z03-017) : startsWith('http') acceptait
+ * « httpfoo://x », « http-truc » ou « httpsss:/x », transmis tels quels à page.goto().
+ * Volontairement dupliqué de lib/analyzer.js (isHttpUrl) : la CLI doit refuser une URL invalide avec le
+ * code 1 sans charger Playwright, contrainte posée par le chargement paresseux ci-dessus.
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isHttpUrl(value) {
+  if (!value || typeof value !== 'string') {
+    return false;
+  }
+
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Parse command line arguments
  * @returns {Object}
  */
@@ -75,7 +96,7 @@ Usage:
 Options:
   --json          Output results as JSON
   --verbose, -v   Verbose output
-  --rules <ids>   Comma-separated list of Opquast rule IDs to check
+  --rules <ids>   Filter results by Opquast rule IDs (comma-separated); every check still runs
   --info          Show analyzer info (rules count, capabilities)
   --help, -h      Show this help message
 
@@ -120,6 +141,11 @@ function formatConsoleOutput(results, verbose) {
   console.log(`  - Warnings: ${results.stats.warningsCount}`);
   console.log(`  - Passes: ${results.stats.passesCount}`);
 
+  // --rules filtre la sortie, il ne restreint pas les contrôles exécutés : le dire explicitement (r1-z03-019)
+  if (results.stats.filteredRules) {
+    console.log(`  - Filtered on rules: ${results.stats.filteredRules.join(', ')} (all checks were run, results filtered)`);
+  }
+
   if (results.violations.length > 0) {
     console.log(`\n--- Violations ---\n`);
 
@@ -151,7 +177,7 @@ async function main() {
   const options = parseArgs();
   if (!options) return;
 
-  if (!options.url.startsWith('http')) {
+  if (!isHttpUrl(options.url)) {
     console.error('Error: URL must start with http:// or https://');
     process.exit(1);
   }
@@ -194,4 +220,8 @@ async function main() {
 }
 
 // Run
-main();
+// Un rejet non capturé sortirait en 1, code qui signifie « violations trouvees » dans cette CLI (r1-z03-047)
+main().catch(error => {
+  console.error(`Error: ${error && error.message ? error.message : error}`);
+  process.exit(2);
+});

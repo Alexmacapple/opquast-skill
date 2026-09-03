@@ -15,8 +15,15 @@ Usage :
   python3 scripts/sync-rules-from-api.py --write --snapshot fichier.json   # depuis un instantané API
   python3 scripts/sync-rules-from-api.py --check --rules copie.json        # sur un autre fichier
 
-Codes de retour : 0 aligné ou écrit ; 1 dérive ou anomalie (écriture refusée) ;
-2 API injoignable, clé absente pour --full, ou erreur d'usage.
+Codes de retour : 0 aligné, écrit, ou --dry-run mené à son terme ; 1 dérive ou
+anomalie (écriture refusée) ; 2 API injoignable, fichier local illisible, clé
+absente pour --full, ou erreur d'usage.
+
+--dry-run est un mode d'affichage : il retourne 0 même en présence d'anomalies,
+et signale alors que --write refusera d'écrire. Utiliser --check pour un
+contrôle automatisé. Le refus d'écriture sur anomalie est délibéré et sans
+échappatoire : le fichier de règles est la source de vérité unique du skill hors
+ligne. Pour expérimenter malgré une anomalie, viser une copie avec --rules.
 
 Clé API (facultative, endpoint étendu) : variable OPQUAST_API_KEY, sinon
 credentials.json dans ~/Claude/.claude, ~/Claude/workflow, ~/Claude/config-claude
@@ -48,6 +55,7 @@ FIELD_NAMES = ("opquast_api_key", "OPQUAST_API_KEY", "opquast")
 NESTED_NAMES = ("api_key", "key", "token")
 BASE_FIELDS = ("title", "tags", "rubrique", "phases", "opquast_id")
 BODY_FIELDS = ("objectives", "solution", "verification")
+ORDER_INSENSITIVE_FIELDS = ("tags", "phases")  # listes non ordonnées côté API
 EXIT_OK, EXIT_DRIFT, EXIT_INFRA = 0, 1, 2
 
 
@@ -237,8 +245,13 @@ def compute_updates(local: dict, api_rules: list[dict], full: bool, schema: dict
             if fr(api, "control"):
                 new["verification"] = html_to_text(fr(api, "control"))
         for field, value in new.items():
-            if rule.get(field) != value:
-                changes.append({"id": rule["id"], "field": field, "old": rule.get(field), "new": value})
+            current = rule.get(field)
+            # tags et phases : l'API ne garantit aucun ordre, une permutation n'est pas une dérive
+            if field in ORDER_INSENSITIVE_FIELDS and isinstance(current, list) and isinstance(value, list):
+                if sorted(current, key=str) == sorted(value, key=str):
+                    continue
+            if current != value:
+                changes.append({"id": rule["id"], "field": field, "old": current, "new": value})
     return changes, errors
 
 
@@ -257,6 +270,21 @@ def apply(local: dict, changes: list[dict], source: str, full: bool) -> None:
         local["enrichment_fields"] = list(BODY_FIELDS)
 
 
+def write_json_atomic(path: Path, data) -> None:
+    """Écrit le JSON dans un temporaire du même répertoire puis remplace atomiquement.
+
+    Une interruption (Ctrl-C, disque plein, SIGTERM) laisse alors le fichier
+    d'origine intact au lieu d'un fichier de règles tronqué.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -271,12 +299,20 @@ def main() -> int:
     try:
         local = json.loads(args.rules.read_text(encoding="utf-8"))
         schema = json.loads(SCHEMA_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        print("Fichier de règles manquant. Vérifier l'installation du skill.")  # message promis par SKILL.md
+        return EXIT_INFRA
     except (OSError, ValueError) as exc:
         print(f"Fichier local ou schéma illisible : {exc}")
         return EXIT_INFRA
     if not isinstance(local, dict) or not isinstance(local.get("rules"), list):
         print("Fichier local : objet avec une liste rules attendu")
         return EXIT_INFRA
+    # r1-z02-036 : aucune règle n'est indexée avant que son identifiant entier soit vérifié
+    for position, rule in enumerate(local["rules"]):
+        if not isinstance(rule, dict) or not isinstance(rule.get("id"), int):
+            print(f"Fichier local : la règle en position {position} n'a pas d'identifiant entier")
+            return EXIT_INFRA
     try:
         api_rules, source = load_api_rules(args.snapshot, args.full)
     except ApiError as exc:
@@ -306,6 +342,8 @@ def main() -> int:
         return EXIT_OK
 
     if args.dry_run:
+        if errors:
+            print("Anomalies présentes : --write refusera d'écrire tant qu'elles subsistent.")
         for change in changes:
             print(f"  #{change['id']} {change['field']}: {json.dumps(change['old'], ensure_ascii=False)[:80]} -> {json.dumps(change['new'], ensure_ascii=False)[:80]}")
         return EXIT_OK
@@ -314,7 +352,11 @@ def main() -> int:
         print("Écriture refusée tant que des anomalies subsistent.")
         return EXIT_DRIFT
     apply(local, changes, source, args.full)
-    args.rules.write_text(json.dumps(local, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        write_json_atomic(args.rules, local)
+    except OSError as exc:
+        print(f"Écriture impossible, fichier d'origine conservé : {exc}")
+        return EXIT_INFRA
     print(f"Écrit : {args.rules}")
     return EXIT_OK
 

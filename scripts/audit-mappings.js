@@ -4,6 +4,11 @@
  * Audit script to verify axe-core → Opquast ID mappings and custom checks
  * Strict coherence between opquast-mapper.js and opquast-v5.json (titles and severities must be equal).
  * Audit ShipGuard 2026-09-03 (r1-z04-004) : la comparaison par mot commun laissait passer des titres faux.
+ *
+ * Garde jumelle : dom-analyzer/tests/mapping-coherence.test.js applique le MÊME critère (égalité
+ * stricte des titres et des sévérités) dans la suite vitest. Les deux doivent rester alignés :
+ * ce script sert d'audit manuel et lisible, le test sert de garde-fou automatique (r1-z04-053).
+ *
  * Usage : npm run audit:mappings (depuis scripts/) ou node scripts/audit-mappings.js
  */
 
@@ -16,7 +21,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const rulesPath = join(__dirname, '..', 'rules', 'opquast-v5.json');
-const rulesJson = JSON.parse(readFileSync(rulesPath, 'utf-8'));
+
+// Le référentiel est régénéré par la synchronisation API : un fichier absent ou mal formé doit
+// produire un message d'audit exploitable et un code de sortie distinctif, pas une trace Node brute
+// (audit ShipGuard 2026-09-03, r1-z04-024).
+let rulesJson;
+try {
+  rulesJson = JSON.parse(readFileSync(rulesPath, 'utf-8'));
+} catch (error) {
+  console.error(`Référentiel Opquast illisible : ${rulesPath}`);
+  console.error(`Cause : ${error.message}`);
+  console.error('Vérifier la présence et la validité du fichier (régénéré par scripts/sync-rules-from-api.py).');
+  process.exit(2);
+}
+
+if (!Array.isArray(rulesJson?.rules)) {
+  console.error(`Référentiel Opquast inexploitable : ${rulesPath} ne contient pas de tableau « rules ».`);
+  process.exit(2);
+}
+
 const rulesById = Object.fromEntries(rulesJson.rules.map(r => [r.id, r]));
 
 console.log('=== AUDIT DES MAPPINGS AXE-CORE ET CHECKS CUSTOM → OPQUAST ===\n');
@@ -31,6 +54,14 @@ function checkEntry(label, opquastId, entry) {
     console.log(`❌ ${label} → ${opquastId}: ID NON TROUVÉ`);
     return;
   }
+  // Un titre absent est l'incohérence même que ce script doit signaler : la remonter comme issue
+  // plutôt que déréférencer et planter sur un TypeError (r1-z04-025).
+  if (typeof entry.title !== 'string' || typeof rule.title !== 'string') {
+    issues.push({ label, opquastId, issue: 'TITLE_MISSING', mapper: entry.title, json: rule.title });
+    console.log(`⚠️  ${label} → ${opquastId}: TITRE ABSENT (mapper: ${entry.title}, JSON: ${rule.title})`);
+    return;
+  }
+
   const problems = [];
   if (entry.title !== rule.title) problems.push({ issue: 'TITLE_MISMATCH', mapper: entry.title, json: rule.title });
   if (entry.severity !== rule.severity) problems.push({ issue: 'SEVERITY_MISMATCH', mapper: entry.severity, json: rule.severity });

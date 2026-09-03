@@ -45,11 +45,15 @@ export const STATIC_VALIDATORS = {
     title: 'Le titre de chaque page permet d\'identifier son contenu.',
     severity: 'critical',
     check: (html) => {
-      const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      // Le titre du document se lit dans <head> : un <title> de SVG inline placé avant ne doit pas
+      // le supplanter, et un titre contenant du balisage ne doit pas être tronqué (r1-z04-039).
+      const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+      const titleMatch = (headMatch && headMatch[1].match(/<title[^>]*>([\s\S]*?)<\/title>/i)) ||
+                         html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       if (!titleMatch) {
         return { valid: false, confidence: 1.0, details: 'Balise title manquante' };
       }
-      const title = titleMatch[1].trim();
+      const title = titleMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       if (title.length === 0) {
         return { valid: false, confidence: 1.0, details: 'Balise title vide' };
       }
@@ -92,8 +96,12 @@ export const STATIC_VALIDATORS = {
       }
 
       const content = viewportMatch[1].toLowerCase();
+      // Comparaison numérique plutôt que motif littéral : 1, 1.0, 1.00, « 1.0; » et toute valeur
+      // inférieure à 1 bloquent le zoom, quel que soit le séparateur qui suit (r1-z04-038).
+      const maxScaleMatch = content.match(/maximum-scale\s*=\s*([0-9]*\.?[0-9]+)/i);
+      const maxScale = maxScaleMatch ? Number.parseFloat(maxScaleMatch[1]) : null;
       const blocksZoom = /user-scalable\s*=\s*(no|0|false)/i.test(content) ||
-                        /maximum-scale\s*=\s*1(\.0)?(\s|,|$)/i.test(content);
+                        (maxScale !== null && !Number.isNaN(maxScale) && maxScale <= 1);
 
       if (blocksZoom) {
         return {
@@ -138,14 +146,17 @@ export const STATIC_VALIDATORS = {
     title: 'Les informations relatives aux droits de copie et de réutilisation sont disponibles depuis toutes les pages.',
     severity: 'minor',
     check: (html) => {
-      const hasCopyright = /(&copy;|©|copyright|droits\s+d['e]\s*auteur|licence|license|creative\s+commons)/i.test(html);
-      if (hasCopyright) {
-        return { valid: true, confidence: 0.8 };
-      }
-      // Check footer area specifically
+      // Le mot « licence » seul ne vaut pas mention de droits (« licence professionnelle ») : il doit
+      // être qualifié (r1-z04-033). Une année isolée dans le pied de page non plus (r1-z04-034).
+      const rightsPattern = /(&copy;|©|copyright|droits\s+d['e]\s*auteur|droits\s+de\s+(copie|reproduction|r[ée]utilisation)|tous\s+droits\s+r[ée]serv[ée]s|creative\s+commons|sous\s+licence|licen[cs]e\s+(creative\s+commons|ouverte|libre|etalab|publique|mit|gpl|apache|bsd)|licen[cs]ed\s+under)/i;
+
+      // Une mention située dans le pied de page est le signal le plus fiable
       const footerMatch = html.match(/<footer[^>]*>([\s\S]*?)<\/footer>/i);
-      if (footerMatch && /(&copy;|©|\d{4})/i.test(footerMatch[1])) {
+      if (footerMatch && rightsPattern.test(footerMatch[1])) {
         return { valid: true, confidence: 0.9 };
+      }
+      if (rightsPattern.test(html)) {
+        return { valid: true, confidence: 0.8 };
       }
       return {
         valid: false,
@@ -234,7 +245,15 @@ export const STATIC_VALIDATORS = {
       // Check for common ad scripts without disclosure
       const hasAdScripts = /(googletag|doubleclick|adsense|adsbygoogle)/i.test(html);
 
-      if (hasAdScripts && !hasAdDisclosure) {
+      if (hasAdScripts) {
+        if (hasAdDisclosure) {
+          // Publicité présente ET identifiée : conformité, pas « non applicable » (r1-z04-035)
+          return {
+            valid: true,
+            confidence: 0.6,
+            details: 'Scripts publicitaires detectes avec identification'
+          };
+        }
         return {
           valid: false,
           confidence: 0.6,
@@ -251,10 +270,20 @@ export const STATIC_VALIDATORS = {
  * Run all static validators on HTML content
  *
  * @param {string} html - HTML source code
- * @param {string} url - Page URL (for context)
+ * @param {string} url - URL de la page, transmise telle quelle en second argument de chaque
+ *   `check(html, url)`. Aucun validateur ne l'exploite aujourd'hui, mais c'est le point
+ *   d'extension prévu pour les règles qui dépendent du contexte d'URL (règles 2 et 15,
+ *   « disponible depuis toutes les pages ») ; la propagation est verrouillée par un test
+ *   (r1-z04-036).
  * @returns {Object} Validation results
+ * @throws {TypeError} si html n'est pas une chaîne (r1-z04-030) : une entrée non textuelle
+ *   produirait sinon des verdicts arbitraires sans qu'aucune erreur ne remonte à l'appelant.
  */
 export function runStaticValidators(html, url = '') {
+  if (typeof html !== 'string') {
+    throw new TypeError(`runStaticValidators attend une chaîne HTML, reçu ${html === null ? 'null' : typeof html}`);
+  }
+
   const results = {
     validators: Object.keys(STATIC_VALIDATORS).length,
     passed: [],

@@ -162,3 +162,89 @@ def test_validate_checks_profile_metadata(tmp_path):
     p = tmp_path / "profiles.json"; p.write_text(json.dumps(profiles), encoding="utf-8")
     r = subprocess.run([sys.executable, str(VALIDATE), "--profiles", str(p)], capture_output=True, text=True)
     assert r.returncode == 1 and "inexistant" in r.stdout and "fantome" in r.stdout
+
+
+# --- r1-z02-033 : l'ordre des tags et des phases ne doit pas produire de dérive fantôme
+def test_reordered_tags_and_phases_are_not_a_drift(rules_copy, tmp_path):
+    snap = snapshot_from_rules(rules_copy)
+    for s_ in snap:
+        s_["metadata"]["Tags"] = list(reversed(s_["metadata"]["Tags"]))
+        s_["metadata"]["Phases projet"] = list(reversed(s_["metadata"]["Phases projet"]))
+    sp = tmp_path / "snap.json"; sp.write_text(json.dumps(snap), encoding="utf-8")
+    r = run_sync(["--check", "--snapshot", str(sp), "--rules", str(rules_copy)])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "Changements : aucun" in r.stdout, r.stdout
+
+
+def test_real_tag_change_is_still_a_drift(rules_copy, tmp_path):
+    snap = snapshot_from_rules(rules_copy)
+    snap[0]["metadata"]["Tags"] = ["Mobile"]
+    sp = tmp_path / "snap.json"; sp.write_text(json.dumps(snap), encoding="utf-8")
+    r = run_sync(["--check", "--snapshot", str(sp), "--rules", str(rules_copy)])
+    assert r.returncode == 1, r.stdout + r.stderr
+
+
+# --- r1-z02-036 : une règle locale sans identifiant est signalée, pas un KeyError
+def test_local_rule_without_id_is_reported(rules_copy, tmp_path):
+    data = json.loads(rules_copy.read_text(encoding="utf-8"))
+    data["rules"][0].pop("id")
+    rules_copy.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    sp = tmp_path / "snap.json"; sp.write_text(json.dumps([]), encoding="utf-8")
+    r = run_sync(["--check", "--snapshot", str(sp), "--rules", str(rules_copy)])
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr
+    assert "identifiant" in r.stdout.lower(), r.stdout
+
+
+# --- r1-z02-035 : fichier de règles absent -> message documenté par SKILL.md, pas de traceback
+def test_missing_rules_file_uses_documented_message(tmp_path):
+    r = run_sync(["--check", "--rules", str(tmp_path / "absent.json")])
+    assert r.returncode == 2
+    assert "Traceback" not in r.stderr
+    assert "Fichier de règles manquant" in r.stdout, r.stdout
+
+
+# --- r1-z02-034 : écriture atomique, le fichier existant survit à un échec de sérialisation
+def test_atomic_write_preserves_file_on_failure(sync, tmp_path):
+    cible = tmp_path / "donnees.json"
+    cible.write_text('{"intact": true}\n', encoding="utf-8")
+    with pytest.raises(TypeError):
+        sync.write_json_atomic(cible, {"impossible": {1, 2}})
+    assert json.loads(cible.read_text(encoding="utf-8")) == {"intact": True}
+    assert list(tmp_path.iterdir()) == [cible], "aucun fichier temporaire ne doit subsister"
+
+
+def test_write_keeps_trailing_newline(rules_copy, tmp_path):
+    sp = tmp_path / "snap.json"; sp.write_text(json.dumps(snapshot_from_rules(rules_copy)), encoding="utf-8")
+    r = run_sync(["--write", "--snapshot", str(sp), "--rules", str(rules_copy)])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert rules_copy.read_text(encoding="utf-8").endswith("}\n")
+
+
+# --- r1-z02-037 : --dry-run reste à 0 (contrat CLI) mais annonce le refus d'écriture
+def test_dry_run_keeps_exit_zero_and_warns_about_anomalies(rules_copy, tmp_path):
+    snap = snapshot_from_rules(rules_copy)
+    snap[0]["description"]["fr"] = ""
+    sp = tmp_path / "snap.json"; sp.write_text(json.dumps(snap), encoding="utf-8")
+    r = run_sync(["--dry-run", "--snapshot", str(sp), "--rules", str(rules_copy)])
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "--write refusera" in r.stdout, r.stdout
+
+
+# --- r1-z02-014 : une violation de schéma unique n'est comptée qu'une fois
+def test_single_schema_error_is_reported_once(rules_copy):
+    data = json.loads(rules_copy.read_text()); data["rules"][0]["title"] = ""
+    rules_copy.write_text(json.dumps(data), encoding="utf-8")
+    r = subprocess.run([sys.executable, str(VALIDATE), "--rules", str(rules_copy)], capture_output=True, text=True)
+    assert r.returncode == 1
+    assert "opquast-v5.json: 1 schema errors" in r.stdout, r.stdout
+
+
+# --- r1-z02-016 : profiles non-objet -> rapport d'erreur, pas d'AttributeError
+def test_profiles_as_array_does_not_crash_validator(tmp_path):
+    p = tmp_path / "profiles.json"
+    p.write_text(json.dumps({"version": "1.0", "profiles": []}), encoding="utf-8")
+    r = subprocess.run([sys.executable, str(VALIDATE), "--profiles", str(p)], capture_output=True, text=True)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "Traceback" not in r.stderr, r.stderr
+    assert "VALIDATION FAILED" in r.stdout, r.stdout

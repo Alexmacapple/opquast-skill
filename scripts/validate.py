@@ -31,7 +31,8 @@ def validate_schema(data: dict, schema: dict, name: str) -> list[str]:
         errors.append(f"{name}: {e.message}")
         # Get all validation errors
         validator = jsonschema.Draft202012Validator(schema)
-        seen = set()
+        # l'erreur qui a déclenché l'exception est déjà rapportée : la pré-inscrire évite de la compter deux fois
+        seen = {(" -> ".join(str(p) for p in e.absolute_path), e.message)}
         for error in validator.iter_errors(data):
             path = " -> ".join(str(p) for p in error.absolute_path)
             key = (path, error.message)  # dédoublonnage par emplacement ET message : deux violations distinctes restent visibles
@@ -56,6 +57,8 @@ def validate_coverage_counts(rules_data: dict) -> list[str]:
     }
 
     for rule in rules:
+        if not isinstance(rule, dict):
+            continue
         category = rule.get("category")
         if category in actual_counts:
             actual_counts[category] += 1
@@ -83,10 +86,19 @@ def validate_coverage_counts(rules_data: dict) -> list[str]:
 def validate_rule_ids(rules_data: dict, profiles_data: dict) -> list[str]:
     """Verify all rule_id references in profiles are valid."""
     errors = []
-    valid_ids = {rule.get("id") for rule in rules_data.get("rules", []) if rule.get("id") is not None}
+    valid_ids = {
+        rule.get("id")
+        for rule in rules_data.get("rules", [])
+        if isinstance(rule, dict) and rule.get("id") is not None
+    }
 
     profiles = profiles_data.get("profiles", {})
+    if not isinstance(profiles, dict):
+        return [f"'profiles' must be an object, got {type(profiles).__name__}"]
     for profile_id, profile in profiles.items():
+        if not isinstance(profile, dict):
+            errors.append(f"Profile '{profile_id}': object expected, got {type(profile).__name__}")
+            continue
         # Check regles_critiques
         for rule_id in profile.get("regles_critiques", []):
             if rule_id not in valid_ids:
@@ -108,6 +120,8 @@ def validate_profile_meta(profiles_data: dict) -> list[str]:
     """detection_priority et fallback_profile doivent référencer des profils existants."""
     errors = []
     profiles = profiles_data.get("profiles", {})
+    if not isinstance(profiles, dict):
+        return [f"'profiles' must be an object, got {type(profiles).__name__}"]
     for name in profiles_data.get("detection_priority", []):
         if name not in profiles:
             errors.append(f"detection_priority references unknown profile '{name}'")
@@ -126,6 +140,9 @@ def validate_unique_rule_ids(rules_data: dict) -> list[str]:
     seen_ids = {}
 
     for i, rule in enumerate(rules_data.get("rules", [])):
+        if not isinstance(rule, dict):
+            errors.append(f"Rule at position {i}: object expected, got {type(rule).__name__}")
+            continue
         rule_id = rule.get("id")
         if rule_id in seen_ids:
             errors.append(
@@ -166,7 +183,7 @@ def main():
         for name, schema in (("rules-schema.json", rules_schema), ("profiles-schema.json", profiles_schema), ("audit-report.json", load_json(report_schema_path))):
             jsonschema.Draft202012Validator.check_schema(schema)  # le schéma lui-même doit être valide (audit-report.json n'était validé par rien)
         print("  [OK] Schemas loaded and well-formed")
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, jsonschema.exceptions.SchemaError) as e:
         print(f"  [ERROR] Failed to load schemas: {e}")
         sys.exit(1)
 
@@ -175,15 +192,15 @@ def main():
     try:
         rules_data = load_json(rules_path)
         print(f"  [OK] {rules_path.name}: {len(rules_data.get('rules', []))} rules")
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"  [ERROR] {rules_path.name}: {e}")
         all_errors.append(f"Failed to load {rules_path.name}")
         rules_data = None
 
     try:
         profiles_data = load_json(profiles_path)
-        print(f"  [OK] {profiles_path.name}: {len(profiles_data.get('profiles', []))} profiles")
-    except Exception as e:
+        print(f"  [OK] {profiles_path.name}: {len(profiles_data.get('profiles', {}))} profiles")
+    except (OSError, json.JSONDecodeError) as e:
         print(f"  [ERROR] {profiles_path.name}: {e}")
         all_errors.append(f"Failed to load {profiles_path.name}")
         profiles_data = None

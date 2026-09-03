@@ -10,6 +10,7 @@ import {
   getAxeRuleIds,
   getAxeRulesForOpquastId,
   getSupportedOpquastRules,
+  AXE_TO_OPQUAST,
   CUSTOM_CHECKS,
   LINK_NAME_RULE,
   IMAGE_ALT_RULE
@@ -110,6 +111,11 @@ export async function checkOpquastRule(page, opquastId) {
   };
 }
 
+/*
+ * Helpers par règle : API publique programmatique du module, non appelée par la CLI.
+ * Conservés après l'audit (r1-z03-038) et désormais couverts par tests/z03-axe-checks-shape.test.js.
+ */
+
 /** Check contrast (Opquast 182) */
 export async function checkContrast(page) {
   return checkOpquastRule(page, 182);
@@ -137,7 +143,24 @@ export async function runFullAnalysis(page, options = {}) {
   const axeResults = await runAxeAnalysis(page, options);
 
   if (!includeCustomChecks) {
-    return axeResults;
+    // Même contrat de sortie quelle que soit l'option (audit ShipGuard 2026-09-03, r1-z03-037) :
+    // bridge.js lit stats.totalRulesChecked et affichait 0 règle vérifiée alors que les règles axe avaient tourné.
+    const axeOpquastIds = [...new Set(Object.values(AXE_TO_OPQUAST).map(m => m.opquastId))].sort((a, b) => a - b);
+
+    return {
+      ...axeResults,
+      customChecks: [],
+      customChecksError: null,
+      stats: {
+        ...axeResults.stats,
+        axeRulesRun: axeResults.stats.rulesChecked,
+        customChecksRun: 0,
+        customViolationsCount: 0,
+        opquastRuleIds: axeOpquastIds,
+        totalRulesChecked: axeOpquastIds.length,
+        totalViolationsCount: axeResults.stats.violationsCount
+      }
+    };
   }
 
   let customViolations = [];
