@@ -21,6 +21,7 @@ allowed-tools:
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Bash(node scripts/*)"
+  - "Bash(python3 scripts/*)"
 ---
 
 # Opquast Checker
@@ -53,7 +54,7 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 - TOUJOURS afficher le disclaimer lors de la première analyse de la session
 - TOUJOURS détecter le profil du site avant de lancer l'audit
 - TOUJOURS mentionner les règles non vérifiables (DOM, interaction) dans le rapport
-- TOUJOURS charger `rules/opquast-v5.json` comme source de vérité pour les règles
+- TOUJOURS charger `rules/opquast-v5.json` comme référence pour l'audit hors ligne ; l'API/MCP Opquast est la source live. Les deux sont alignées (titres, tags, rubriques, phases synchronisés depuis l'API, voir `synced_from_api` dans le fichier) ; en cas d'écart, l'API prime et le fichier doit être resynchronisé (voir Maintenance)
 - TOUJOURS consulter la spec live `https://api.opquast.com/swagger/?format=openapi` avant d'ajouter ou d'utiliser un endpoint API non documenté ici
 - JAMAIS inventer un numéro de règle ou une sévérité non présente dans le JSON
 - JAMAIS inventer un endpoint API, un format d'authentification ou un paramètre : vérifier dans Swagger ou dans `MCP/opquast-mcp/server.py`
@@ -74,7 +75,8 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 
 ## Ressources
 
-- `rules/opquast-v5.json` : 245 règles enrichies (id, title, category, rubrique, tags, objectives, solution, verification, severity)
+- `rules/opquast-v5.json` : 245 règles (id, title, category, rubrique, tags, phases, opquast_id, objectives, solution, verification, severity). Titres, tags, rubriques, phases et identifiants proviennent de l'API ; objectifs, solutions et vérifications proviennent des fiches `references/regles-v5/`
+- `scripts/sync-rules-from-api.py` : alignement du fichier de règles sur l'API (`--check`, `--dry-run`, `--write`, `--full`)
 - `rules/site-profiles.json` : Détection et filtrage par type de site (6 profils)
 - `schemas/audit-report.json` : Schéma JSON pour les rapports structurés
 - Dossier des règles V5 : 245 règles détaillées individuelles
@@ -86,7 +88,7 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 
 Source de vérité live : `https://api.opquast.com/swagger/?format=openapi`. L'interface humaine est `https://api.opquast.com/swagger/`.
 
-Authentification : les endpoints privés attendent l'en-tête `Authorization: <clé API brute>`. Ne pas préfixer par `Bearer`, `Token` ou `X-API-Key`.
+Authentification : les endpoints privés attendent l'en-tête `Authorization: <clé API brute>` (vérifié le 2026-09-03 ; `Api-Key` est toléré, `Bearer`, `Token` et `X-API-Key` sont refusés). Une clé révoquée donne `403` avec « Informations d'authentification non fournies ».
 
 Endpoints V5 utiles (`version=qualite-numerique`) :
 
@@ -102,9 +104,19 @@ Endpoints V5 utiles (`version=qualite-numerique`) :
 | Certifiés expirés | `GET /certified/expired/` | Oui |
 | Certifié par nom ou clé | `GET /certified/{applicant_name_or_key}/` | Oui |
 
-Serveur local : `MCP/opquast-mcp/server.py` expose ces données comme outils MCP et utilise `rules/opquast-v5.json` comme fallback local quand l'API échoue.
+Serveur local : `MCP/opquast-mcp/server.py` expose ces données comme outils MCP (documentation : `MCP/opquast-mcp/README.md`). Chaque réponse porte `source` (`api`, `cache` ou `local`) ; en repli local, `fallback_reason` donne la cause et `local_snapshot` la date d'alignement du fichier. L'outil `opquast_status` indique la source effective avant toute consultation.
 
-Quand l'utilisateur demande une information actuelle ou une recherche large dans les règles, préférer l'API/MCP si disponible, puis citer `source: api`. Si l'API répond `401` ou `403`, signaler le statut, vérifier la présence de `OPQUAST_API_KEY` ou `.claude/credentials.json`, puis basculer sur les données locales avec `source: local`.
+Quand l'utilisateur demande une information actuelle ou une recherche large dans les règles, préférer l'API/MCP si disponible, puis citer `source: api`. Si l'API répond `401` ou `403`, signaler le statut, vérifier `OPQUAST_API_KEY` ou le champ `opquast_api_key` de `~/Claude/.claude/credentials.json` (ordre de `MCP/opquast-mcp/run.sh`), puis basculer sur les données locales avec `source: local`.
+
+### Maintenance
+
+Le fichier local et l'API doivent rester alignés. Contrôle de dérive (code retour 1 si écart) :
+
+```bash
+python3 scripts/sync-rules-from-api.py --check
+```
+
+Mise à jour des titres, tags, rubriques, phases et identifiants : `--write`. Avec `--full` (clé API requise), objectifs, solutions et vérifications sont aussi rafraîchis depuis la checklist étendue. Après une mise à jour, relancer `python3 scripts/validate.py`.
 
 ## Intelligence contextuelle
 
@@ -185,6 +197,7 @@ Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/e
 | `scripts/bridge.js` échoue ou absent | Continuer sans analyse DOM. Classer toutes les règles `requires_dom` dans la section "Non vérifiables" |
 | API Opquast répond `401`/`403` | Signaler l'erreur d'authentification, ne pas afficher la clé, utiliser le fallback local si possible |
 | Swagger API indisponible | Ne pas inventer l'endpoint. Utiliser seulement les endpoints déjà documentés ici ou le fallback local |
+| Réponse API différente de `rules/opquast-v5.json` (titre, tag, rubrique) | Faire confiance à l'API, signaler l'écart, proposer `python3 scripts/sync-rules-from-api.py --write` |
 | Argument `$ARGUMENTS` non reconnu | Lister les commandes disponibles avec exemples |
 
 ## Workflow
