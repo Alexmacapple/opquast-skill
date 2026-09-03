@@ -49,6 +49,12 @@ export async function createContext(options = {}) {
     ignoreHTTPSErrors: true
   };
 
+  if (contextInstance) {
+    // Ne pas écraser un contexte ouvert sans le fermer (audit ShipGuard 2026-09-03, r1-z03-029)
+    await contextInstance.close().catch(() => {});
+    contextInstance = null;
+  }
+
   contextInstance = await browser.newContext({
     ...defaultOptions,
     ...options
@@ -84,14 +90,19 @@ export async function navigateAndWait(page, url, options = {}) {
  * @returns {Promise<void>}
  */
 export async function closeBrowser() {
-  if (contextInstance) {
-    await contextInstance.close();
+  try {
+    if (contextInstance) {
+      await contextInstance.close();
+    }
+  } finally {
     contextInstance = null;
-  }
-
-  if (browserInstance) {
-    await browserInstance.close();
-    browserInstance = null;
+    try {
+      if (browserInstance) {
+        await browserInstance.close();
+      }
+    } finally {
+      browserInstance = null;
+    }
   }
 }
 

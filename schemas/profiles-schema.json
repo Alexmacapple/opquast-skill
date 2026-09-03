@@ -4,7 +4,10 @@
   "title": "Site Profiles Schema",
   "description": "Schema for site-profiles.json",
   "type": "object",
-  "required": ["version", "profiles"],
+  "required": [
+    "version",
+    "profiles"
+  ],
   "properties": {
     "version": {
       "type": "string"
@@ -17,12 +20,29 @@
       "additionalProperties": {
         "$ref": "#/$defs/profile"
       }
+    },
+    "detection_priority": {
+      "type": "array",
+      "description": "Ordre d'essai des profils lors de la détection ; chaque valeur est une clé de profiles",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_profile": {
+      "type": "string",
+      "description": "Profil appliqué quand aucun profil n'est détecté (clé de profiles)"
     }
   },
   "$defs": {
     "profile": {
       "type": "object",
-      "required": ["name", "detection", "regles_critiques", "regles_exclues", "pages_a_analyser"],
+      "required": [
+        "name",
+        "detection",
+        "regles_critiques",
+        "regles_exclues",
+        "pages_a_analyser"
+      ],
       "properties": {
         "name": {
           "type": "string"
@@ -35,25 +55,35 @@
           "properties": {
             "keywords": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "elements": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "urls": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "meta": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
         "rubriques_prioritaires": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "regles_critiques": {
           "type": "array",
@@ -75,7 +105,9 @@
         },
         "pages_a_analyser": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

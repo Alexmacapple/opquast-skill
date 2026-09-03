@@ -31,11 +31,12 @@ def validate_schema(data: dict, schema: dict, name: str) -> list[str]:
         errors.append(f"{name}: {e.message}")
         # Get all validation errors
         validator = jsonschema.Draft202012Validator(schema)
-        seen_messages = set()
+        seen = set()
         for error in validator.iter_errors(data):
-            if error.message not in seen_messages:
-                seen_messages.add(error.message)
-                path = " -> ".join(str(p) for p in error.absolute_path)
+            path = " -> ".join(str(p) for p in error.absolute_path)
+            key = (path, error.message)  # dédoublonnage par emplacement ET message : deux violations distinctes restent visibles
+            if key not in seen:
+                seen.add(key)
                 errors.append(f"  {path}: {error.message}" if path else f"  {error.message}")
     return errors
 
@@ -82,7 +83,7 @@ def validate_coverage_counts(rules_data: dict) -> list[str]:
 def validate_rule_ids(rules_data: dict, profiles_data: dict) -> list[str]:
     """Verify all rule_id references in profiles are valid."""
     errors = []
-    valid_ids = {rule["id"] for rule in rules_data.get("rules", [])}
+    valid_ids = {rule.get("id") for rule in rules_data.get("rules", []) if rule.get("id") is not None}
 
     profiles = profiles_data.get("profiles", {})
     for profile_id, profile in profiles.items():
@@ -100,6 +101,22 @@ def validate_rule_ids(rules_data: dict, profiles_data: dict) -> list[str]:
                     f"Profile '{profile_id}': invalid regles_exclues {rule_id}"
                 )
 
+    return errors
+
+
+def validate_profile_meta(profiles_data: dict) -> list[str]:
+    """detection_priority et fallback_profile doivent référencer des profils existants."""
+    errors = []
+    profiles = profiles_data.get("profiles", {})
+    for name in profiles_data.get("detection_priority", []):
+        if name not in profiles:
+            errors.append(f"detection_priority references unknown profile '{name}'")
+    fallback = profiles_data.get("fallback_profile")
+    if fallback is not None and fallback not in profiles:
+        errors.append(f"fallback_profile references unknown profile '{fallback}'")
+    missing = [name for name in profiles if name not in profiles_data.get("detection_priority", [])]
+    if missing:
+        errors.append(f"profiles absent from detection_priority: {', '.join(missing)}")
     return errors
 
 
@@ -121,14 +138,19 @@ def validate_unique_rule_ids(rules_data: dict) -> list[str]:
 
 
 def main():
-    # Determine paths
+    import argparse
     script_dir = Path(__file__).parent
     base_dir = script_dir.parent
+    parser = argparse.ArgumentParser(description="Valide opquast-v5.json et site-profiles.json contre leurs schémas.")
+    parser.add_argument("--rules", type=Path, default=base_dir / "rules" / "opquast-v5.json", help="fichier de règles à valider (défaut : rules/opquast-v5.json)")
+    parser.add_argument("--profiles", type=Path, default=base_dir / "rules" / "site-profiles.json", help="fichier de profils à valider")
+    args = parser.parse_args()
 
-    rules_path = base_dir / "rules" / "opquast-v5.json"
-    profiles_path = base_dir / "rules" / "site-profiles.json"
+    rules_path = args.rules
+    profiles_path = args.profiles
     rules_schema_path = base_dir / "schemas" / "rules-schema.json"
     profiles_schema_path = base_dir / "schemas" / "profiles-schema.json"
+    report_schema_path = base_dir / "schemas" / "audit-report.json"
 
     all_errors = []
 
@@ -141,7 +163,9 @@ def main():
     try:
         rules_schema = load_json(rules_schema_path)
         profiles_schema = load_json(profiles_schema_path)
-        print("  [OK] Schemas loaded")
+        for name, schema in (("rules-schema.json", rules_schema), ("profiles-schema.json", profiles_schema), ("audit-report.json", load_json(report_schema_path))):
+            jsonschema.Draft202012Validator.check_schema(schema)  # le schéma lui-même doit être valide (audit-report.json n'était validé par rien)
+        print("  [OK] Schemas loaded and well-formed")
     except Exception as e:
         print(f"  [ERROR] Failed to load schemas: {e}")
         sys.exit(1)
@@ -203,6 +227,16 @@ def main():
         else:
             print("  [OK] All rule IDs unique")
 
+    # Validate profile metadata
+    print("\nValidating profile metadata...")
+    if profiles_data:
+        errors = validate_profile_meta(profiles_data)
+        if errors:
+            all_errors.extend(errors)
+            print(f"  [FAIL] {len(errors)} profile metadata issue(s)")
+        else:
+            print("  [OK] detection_priority and fallback_profile consistent")
+
     # Validate rule references in profiles
     print("\nValidating rule references...")
     if rules_data and profiles_data:
@@ -226,11 +260,14 @@ def main():
         print("=" * 60)
         if rules_data:
             coverage = rules_data.get("coverage", {})
-            print(f"\nCoverage summary:")
-            print(f"  - Static:              {coverage.get('static', 0)} rules (61%)")
-            print(f"  - Requires DOM:        {coverage.get('requires_dom', 0)} rules (20%)")
-            print(f"  - Requires interaction:{coverage.get('requires_interaction', 0)} rules (13%)")
-            print(f"  - Content quality:     {coverage.get('content_quality', 0)} rules (6%)")
+            total = len(rules_data.get("rules", [])) or 1
+            def pct(key):
+                return round(100 * coverage.get(key, 0) / total)
+            print(f"\nCoverage summary ({total} rules):")
+            print(f"  - Static:              {coverage.get('static', 0)} rules ({pct('static')}%)")
+            print(f"  - Requires DOM:        {coverage.get('requires_dom', 0)} rules ({pct('requires_dom')}%)")
+            print(f"  - Requires interaction:{coverage.get('requires_interaction', 0)} rules ({pct('requires_interaction')}%)")
+            print(f"  - Content quality:     {coverage.get('content_quality', 0)} rules ({pct('content_quality')}%)")
         sys.exit(0)
 
 

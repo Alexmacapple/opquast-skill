@@ -37,10 +37,15 @@ if [ ! -d "$SKILLS_DIR" ]; then
 fi
 
 # Vérifier si le skill existe déjà
-if [ -e "$SKILLS_DIR/$SKILL_NAME" ]; then
+if [ -e "$SKILLS_DIR/$SKILL_NAME" ] || [ -L "$SKILLS_DIR/$SKILL_NAME" ]; then
     echo -e "${YELLOW}Le skill $SKILL_NAME existe déjà.${NC}"
-    read -p "Voulez-vous le remplacer ? (o/N) " -n 1 -r
-    echo
+    if [ -t 0 ]; then
+        read -p "Voulez-vous le remplacer ? (o/N) " -n 1 -r
+        echo
+    else
+        REPLY="${OPQUAST_INSTALL_REPLACE:-N}"
+        echo "Entrée non interactive : remplacement = $REPLY (variable OPQUAST_INSTALL_REPLACE)"
+    fi
     if [[ $REPLY =~ ^[Oo]$ ]]; then
         echo "Suppression de l'ancienne installation..."
         rm -rf "$SKILLS_DIR/$SKILL_NAME"
@@ -56,8 +61,13 @@ echo "Mode d'installation :"
 echo "  1) Lien symbolique (recommandé pour le développement)"
 echo "  2) Copie complète (recommandé pour la production)"
 echo ""
-read -p "Choix [1/2] : " -n 1 -r INSTALL_MODE
-echo ""
+if [ -t 0 ]; then
+    read -p "Choix [1/2] : " -n 1 -r INSTALL_MODE
+    echo ""
+else
+    INSTALL_MODE="${OPQUAST_INSTALL_MODE:-1}"
+    echo "Entrée non interactive : mode = $INSTALL_MODE (variable OPQUAST_INSTALL_MODE)"
+fi
 
 case $INSTALL_MODE in
     1)
@@ -88,8 +98,12 @@ else
 fi
 
 if [ -f "$SKILLS_DIR/$SKILL_NAME/rules/opquast-v5.json" ]; then
-    RULE_COUNT=$(python3 -c "import json; print(len(json.load(open('$SKILLS_DIR/$SKILL_NAME/rules/opquast-v5.json'))['rules']))" 2>/dev/null || echo "?")
-    echo -e "${GREEN}✓ $RULE_COUNT règles chargées${NC}"
+    if RULE_COUNT=$(python3 -c "import json; print(len(json.load(open('$SKILLS_DIR/$SKILL_NAME/rules/opquast-v5.json'))['rules']))" 2>/dev/null); then
+        echo -e "${GREEN}✓ $RULE_COUNT règles chargées${NC}"
+    else
+        echo -e "${RED}✗ Fichier de règles illisible (JSON invalide ou python3 absent)${NC}"
+        exit 1
+    fi
 else
     echo -e "${RED}✗ Fichier de règles manquant${NC}"
     exit 1

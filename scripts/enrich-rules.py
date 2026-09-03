@@ -4,6 +4,7 @@ Enrichit opquast-v5.json avec les données des fichiers de règles individuels.
 Extrait: objectifs, solution, méthode de vérification
 """
 
+import datetime
 import json
 import re
 import os
@@ -105,15 +106,17 @@ def main():
         rule_id = rule['id']
         enrichment = process_rule(rule_id)
 
-        if enrichment:
-            rule.update(enrichment)
+        # Ne jamais écraser des données existantes par une extraction vide (section renommée, fiche absente)
+        if enrichment and any(enrichment.values()):
+            rule.update({k: v for k, v in enrichment.items() if v})
             enriched_count += 1
             if rule_id % 50 == 0:
                 print(f"  Règle {rule_id}/245...")
 
     # Mettre à jour les métadonnées
     data['enriched'] = True
-    data['enriched_date'] = "2026-01-15"
+    data['enriched_date'] = datetime.date.today().isoformat()
+    data['enrichment_source'] = "fiches references/regles-v5"
     data['enrichment_fields'] = ["objectives", "solution", "verification"]
 
     # Sauvegarder

@@ -74,6 +74,9 @@ async function checkTextNotJustified(page) {
     document.querySelectorAll(textElements).forEach(el => {
       const style = getComputedStyle(el);
       if (style.textAlign === 'justify') {
+        // Une seule violation par sous-arbre : la valeur héritée du parent n'est pas re-signalée (audit ShipGuard 2026-09-03, r1-z03-049)
+        const parent = el.parentElement;
+        if (parent && getComputedStyle(parent).textAlign === 'justify') return;
         results.push({
           html: el.outerHTML.slice(0, 200),
           target: [el.tagName.toLowerCase()],
@@ -99,6 +102,12 @@ async function checkCopyNotBlocked(page) {
     document.querySelectorAll(contentElements).forEach(el => {
       const style = getComputedStyle(el);
       if (style.userSelect === 'none' || style.webkitUserSelect === 'none') {
+        // Idem : user-select hérité du parent déjà signalé (r1-z03-048)
+        const parent = el.parentElement;
+        if (parent) {
+          const ps = getComputedStyle(parent);
+          if (ps.userSelect === 'none' || ps.webkitUserSelect === 'none') return;
+        }
         results.push({
           html: el.outerHTML.slice(0, 200),
           target: [el.tagName.toLowerCase()],
@@ -150,8 +159,9 @@ async function checkFocusVisible(page) {
   const elements = await page.locator(focusableSelector).all();
   const violations = [];
 
-  // Limit to first 30 elements for performance
+  // Limit to first 30 elements for performance (la limite est signalée sur stderr quand elle s'applique)
   const toCheck = elements.slice(0, 30);
+  let inconclusive = 0;
 
   for (const el of toCheck) {
     try {
@@ -194,8 +204,16 @@ async function checkFocusVisible(page) {
         });
       }
     } catch (e) {
-      // Element may not be focusable or visible, skip
+      // Élément non focalisable ou détaché : compté comme non évaluable plutôt que conforme (r1-z03-020)
+      inconclusive++;
     }
+  }
+
+  if (inconclusive > 0) {
+    console.error(`[custom-checks] règle 165 : ${inconclusive} élément(s) non évaluable(s) sur ${toCheck.length} (ignorés, pas conformes)`);
+  }
+  if (elements.length > toCheck.length) {
+    console.error(`[custom-checks] règle 165 : contrôle limité aux ${toCheck.length} premiers éléments focalisables sur ${elements.length}`);
   }
 
   return formatViolation(165, violations);
@@ -216,6 +234,17 @@ async function checkKeyboardNavigable(page) {
 
       // Skip hidden elements
       if (isHidden) return;
+
+      // Élément cliquable non nativement focalisable et sans tabindex : inatteignable au clavier (r1-z03-023)
+      const nativelyFocusable = ['a', 'button', 'input', 'select', 'textarea'].includes(el.tagName.toLowerCase()) && (el.tagName.toLowerCase() !== 'a' || el.hasAttribute('href'));
+      if (!nativelyFocusable && tabindex === null) {
+        results.push({
+          html: el.outerHTML.slice(0, 200),
+          target: [el.tagName.toLowerCase()],
+          failureSummary: 'Clickable element is not natively focusable and has no tabindex'
+        });
+        return;
+      }
 
       // Check if element is not focusable (tabindex=-1 without role handling)
       if (tabindex === '-1' && !el.closest('[role="dialog"]') && !el.closest('[role="menu"]')) {
@@ -265,6 +294,7 @@ async function checkTargetSize(page) {
   const interactiveSelector = 'a[href], button, input:not([type="hidden"]), select, [role="button"], [onclick]';
   const elements = await page.locator(interactiveSelector).all();
   const violations = [];
+  let inconclusiveTargets = 0;
 
   for (const el of elements) {
     try {
@@ -281,8 +311,13 @@ async function checkTargetSize(page) {
         });
       }
     } catch (e) {
-      // Element may not be visible, skip
+      // Élément non mesurable : compté comme non évaluable plutôt que conforme (r1-z03-021)
+      inconclusiveTargets++;
     }
+  }
+
+  if (inconclusiveTargets > 0) {
+    console.error(`[custom-checks] règle 186 : ${inconclusiveTargets} élément(s) non mesurable(s) (ignorés, pas conformes)`);
   }
 
   return formatViolation(186, violations);

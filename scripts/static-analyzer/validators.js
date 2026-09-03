@@ -21,9 +21,10 @@ import { CONFIDENCE_LEVELS } from '../dom-analyzer/utils/opquast-mapper.js';
  * - severity: critical | major | minor
  */
 export const STATIC_VALIDATORS = {
+  // Titres et sévérités alignés sur rules/opquast-v5.json (audit ShipGuard 2026-09-03, r1-z04-028) : égalité stricte testée.
   // Rule 3: Meta description present
   3: {
-    title: 'Le code source contient une meta description',
+    title: 'Le code source de chaque page contient une métadonnée qui en décrit le contenu.',
     severity: 'major',
     check: (html) => {
       const hasMetaDesc = /<meta\s+[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["'][^"']+["']/i.test(html) ||
@@ -41,7 +42,7 @@ export const STATIC_VALIDATORS = {
 
   // Rule 103: Page title is present and meaningful
   103: {
-    title: 'Le titre de page permet d\'identifier son contenu',
+    title: 'Le titre de chaque page permet d\'identifier son contenu.',
     severity: 'critical',
     check: (html) => {
       const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
@@ -61,10 +62,11 @@ export const STATIC_VALIDATORS = {
 
   // Rule 130: HTML lang attribute present
   130: {
-    title: 'La langue principale du contenu est indiquee',
+    title: 'Le code source de chaque page indique la langue principale du contenu.',
     severity: 'critical',
     check: (html) => {
-      const hasLang = /<html[^>]+lang\s*=\s*["'][a-z]{2,5}(-[a-zA-Z]{2,5})?["']/i.test(html);
+      // Seul l'attribut lang compte : xml:lang ou data-lang ne satisfont pas la règle (r1-z04-032)
+      const hasLang = /<html[^>]*\s(?<!xml:)(?<!data-)lang\s*=\s*["'][a-z]{2,5}(-[a-zA-Z]{2,5})?["']/i.test(html);
       if (hasLang) {
         return { valid: true, confidence: 1.0 };
       }
@@ -78,7 +80,7 @@ export const STATIC_VALIDATORS = {
 
   // Rule 193: Viewport meta doesn't block zoom
   193: {
-    title: 'Les fonctionnalites de zoom ne sont pas bloquees',
+    title: 'Les fonctionnalités de zoom ne sont pas bloquées.',
     severity: 'critical',
     check: (html) => {
       const viewportMatch = html.match(/<meta[^>]+name\s*=\s*["']viewport["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
@@ -104,10 +106,10 @@ export const STATIC_VALIDATORS = {
     }
   },
 
-  // Rule 127: No autoplay audio/video
-  127: {
-    title: 'Les sons sont declenches par l\'utilisateur',
-    severity: 'major',
+  // Rule 125: Les sons sont déclenchés par l'utilisateur (autoplay audio/vidéo) ; 127 concerne les animations (r1-z04-028)
+  125: {
+    title: 'Les sons sont déclenchés par l\'utilisateur.',
+    severity: 'critical',
     check: (html) => {
       // Check for autoplay on audio/video elements
       const hasAutoplay = /<(audio|video)[^>]+autoplay/i.test(html);
@@ -133,7 +135,7 @@ export const STATIC_VALIDATORS = {
 
   // Rule 2: Copyright/license info available
   2: {
-    title: 'Informations droits de copie disponibles',
+    title: 'Les informations relatives aux droits de copie et de réutilisation sont disponibles depuis toutes les pages.',
     severity: 'minor',
     check: (html) => {
       const hasCopyright = /(&copy;|©|copyright|droits\s+d['e]\s*auteur|licence|license|creative\s+commons)/i.test(html);
@@ -155,8 +157,8 @@ export const STATIC_VALIDATORS = {
 
   // Rule 15: Privacy policy link available
   15: {
-    title: 'Politique de confidentialite accessible',
-    severity: 'major',
+    title: 'La politique de confidentialité et de respect de la vie privée est disponible depuis toutes les pages.',
+    severity: 'critical',
     check: (html) => {
       const privacyPatterns = [
         /href\s*=\s*["'][^"']*\/(privacy|confidentialite|vie-privee|politique-confidentialite|rgpd|gdpr)/i,
@@ -179,8 +181,8 @@ export const STATIC_VALIDATORS = {
 
   // Rule 1: RSS/Atom feed available
   1: {
-    title: 'Fil RSS/Atom disponible pour les nouveaux contenus',
-    severity: 'minor',
+    title: 'Il est possible de connaître les nouveaux contenus ou services.',
+    severity: 'critical',
     check: (html) => {
       const hasFeed = /<link[^>]+type\s*=\s*["'](application\/(rss|atom)\+xml|text\/xml)["']/i.test(html) ||
                      /<link[^>]+rel\s*=\s*["']alternate["'][^>]+type\s*=\s*["']application\/(rss|atom)\+xml["']/i.test(html);
@@ -199,7 +201,7 @@ export const STATIC_VALIDATORS = {
 
   // Rule 6: Publication date indicated
   6: {
-    title: 'Date de publication indiquee',
+    title: 'La date de publication des contenus qui le nécessitent est indiquée.',
     severity: 'minor',
     check: (html) => {
       // Check for structured data dates
@@ -222,8 +224,8 @@ export const STATIC_VALIDATORS = {
 
   // Rule 8: Advertising content identified
   8: {
-    title: 'Contenus publicitaires identifies',
-    severity: 'minor',
+    title: 'Les contenus publicitaires ou sponsorisés sont identifiés comme tels.',
+    severity: 'major',
     check: (html) => {
       // Check for ad containers with proper disclosure
       const hasAdDisclosure = /aria-label\s*=\s*["'][^"']*(publicit|sponsor|annonce|ad\b)/i.test(html) ||
@@ -258,6 +260,7 @@ export function runStaticValidators(html, url = '') {
     passed: [],
     failed: [],
     skipped: [],
+    errors: [],
     timestamp: new Date().toISOString()
   };
 
@@ -294,10 +297,11 @@ export function runStaticValidators(html, url = '') {
         });
       }
     } catch (error) {
-      results.skipped.push({
+      // Une exception de validateur est une erreur, pas un « non applicable » (r1-z04-031)
+      results.errors.push({
         opquastId: id,
         title: validator.title,
-        reason: `Erreur: ${error.message}`
+        error: error.message
       });
     }
   }

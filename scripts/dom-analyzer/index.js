@@ -13,7 +13,10 @@
  *   import { analyze } from './lib/analyzer.js';
  */
 
-import { analyze, getSupportedRules, getAnalyzerInfo } from './lib/analyzer.js';
+import { getSupportedOpquastRules } from './utils/opquast-mapper.js';
+
+// L'analyseur (et Playwright) n'est chargé qu'au moment d'analyser : --help et --info fonctionnent sans navigateur (r1-z03-040)
+const loadAnalyzer = () => import('./lib/analyzer.js');
 
 /**
  * Parse command line arguments
@@ -28,8 +31,14 @@ function parseArgs() {
   }
 
   if (args[0] === '--info') {
-    console.log(JSON.stringify(getAnalyzerInfo(), null, 2));
-    process.exit(0);
+    loadAnalyzer().then(({ getAnalyzerInfo }) => {
+      console.log(JSON.stringify(getAnalyzerInfo(), null, 2));
+      process.exit(0);
+    }).catch(error => {
+      console.error(`Error: ${error.message}`);
+      process.exit(2);
+    });
+    return null;
   }
 
   const options = {
@@ -40,8 +49,14 @@ function parseArgs() {
   };
 
   const rulesIndex = args.indexOf('--rules');
-  if (rulesIndex !== -1 && args[rulesIndex + 1]) {
-    options.rules = args[rulesIndex + 1].split(',').map(Number);
+  if (rulesIndex !== -1) {
+    const raw = args[rulesIndex + 1] || '';
+    const ids = raw.split(',').map(v => v.trim());
+    if (ids.length === 0 || ids.some(v => !/^\d+$/.test(v))) {
+      console.error('Error: --rules expects a comma-separated list of Opquast rule numbers (e.g. --rules 182,186)');
+      process.exit(1);
+    }
+    options.rules = ids.map(Number);
   }
 
   return options;
@@ -74,7 +89,7 @@ Programmatic Usage:
   const results = await analyze('https://example.com');
 
 Supported Opquast Rules:
-  ${getSupportedRules().join(', ')}
+  ${getSupportedOpquastRules().join(', ')}
 `);
 }
 
@@ -134,6 +149,7 @@ function formatConsoleOutput(results, verbose) {
  */
 async function main() {
   const options = parseArgs();
+  if (!options) return;
 
   if (!options.url.startsWith('http')) {
     console.error('Error: URL must start with http:// or https://');
@@ -145,6 +161,7 @@ async function main() {
       console.log(`Analyzing: ${options.url}`);
     }
 
+    const { analyze } = await loadAnalyzer();
     const results = await analyze(options.url, {
       includeWarnings: options.verbose,
       includeCustomChecks: true,
@@ -158,8 +175,9 @@ async function main() {
       formatConsoleOutput(results, options.verbose);
     }
 
-    // Exit with appropriate code
-    process.exit(results.violations.length > 0 ? 1 : 0);
+    // Exit codes: 0 conformant, 1 violations, 2 analysis failed (audit ShipGuard 2026-09-03, r1-z03-003)
+    // exitCode plutôt que exit() : la sortie JSON est entièrement écrite avant la fin du processus
+    process.exitCode = !results.success ? 2 : (results.violations.length > 0 ? 1 : 0);
 
   } catch (error) {
     if (options.json) {

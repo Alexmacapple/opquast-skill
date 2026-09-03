@@ -16,10 +16,10 @@
  *   import { runUnifiedAnalysis } from './scripts/bridge.js';
  */
 
-import { analyze, getAnalyzerInfo } from './dom-analyzer/lib/analyzer.js';
+import { analyze, getAnalyzerInfo, getSupportedRules } from './dom-analyzer/lib/analyzer.js';
 import { runStaticValidators, getValidatorInfo } from './static-analyzer/validators.js';
 import { readFile } from 'fs/promises';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,6 +46,17 @@ async function loadOpquastRules() {
  * @param {string} options.rubrique - Filter by rubrique
  * @returns {Promise<Object>} Unified analysis results
  */
+/**
+ * Keep only the violations whose Opquast rule belongs to the selected rule set (theme / rubrique filters)
+ * @param {Array} violations
+ * @param {Array} rules - rules kept after filtering (objects with id)
+ * @returns {Array}
+ */
+export function filterViolationsByRules(violations, rules) {
+  const allowed = new Set(rules.map(r => r.id));
+  return violations.filter(v => allowed.has(v.opquastId));
+}
+
 export async function runUnifiedAnalysis(url, options = {}) {
   const {
     domOnly = false,
@@ -112,9 +123,11 @@ export async function runUnifiedAnalysis(url, options = {}) {
 
     // Add DOM violations to summary
     if (domResults.violations) {
+      // Conserver la source PRD-002 (axe-core / custom-check) ; la lane est portée par un champ distinct (r1-z03-043)
       results.summary.violations.push(...domResults.violations.map(v => ({
         ...v,
-        source: 'dom'
+        source: v.source || 'dom',
+        lane: 'dom'
       })));
     }
 
@@ -123,8 +136,13 @@ export async function runUnifiedAnalysis(url, options = {}) {
       try {
         console.error(`[Bridge] Running static heuristic validators...`);
         const response = await fetch(url, {
-          headers: { 'User-Agent': 'OpquastBot/1.0' }
+          headers: { 'User-Agent': 'OpquastBot/1.0' },
+          signal: AbortSignal.timeout(30000)
         });
+        if (!response.ok) {
+          // Une page d'erreur HTTP n'est pas la page à auditer (r1-z04-007)
+          throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
         const html = await response.text();
 
         const heuristicResults = runStaticValidators(html, url);
@@ -134,13 +152,15 @@ export async function runUnifiedAnalysis(url, options = {}) {
         // Add heuristic violations to summary
         results.summary.violations.push(...heuristicResults.failed.map(v => ({
           ...v,
-          source: 'static-heuristic'
+          source: v.source || 'static-heuristic',
+          lane: 'static-heuristic'
         })));
 
         console.error(`[Bridge] Heuristic validators: ${heuristicResults.passed.length} passed, ${heuristicResults.failed.length} failed, ${heuristicResults.skipped.length} skipped`);
       } catch (fetchError) {
         console.error(`[Bridge] Warning: Could not fetch HTML for static validation: ${fetchError.message}`);
-        results.analysis.heuristic = { error: fetchError.message };
+        // Forme stable même en erreur (r1-z04-009)
+        results.analysis.heuristic = { error: fetchError.message, passed: [], failed: [], skipped: [], errors: [] };
       }
     }
 
@@ -150,8 +170,11 @@ export async function runUnifiedAnalysis(url, options = {}) {
       const domRules = rules.filter(r => r.category === 'requires_dom');
       const interactionRules = rules.filter(r => r.category === 'requires_interaction');
 
+      // Ne soustraire que les validateurs qui portent sur des règles static (r1-z04-010)
+      const staticIds = new Set(staticRules.map(r => r.id));
+      const heuristicStatic = [...(results.analysis.heuristic?.passed || []), ...(results.analysis.heuristic?.failed || [])].filter(v => staticIds.has(v.opquastId)).length;
       const heuristicCount = results.summary.staticRulesChecked || 0;
-      const remainingStatic = staticRules.length - heuristicCount;
+      const remainingStatic = staticRules.length - heuristicStatic;
 
       results.analysis.static = {
         totalStaticRules: staticRules.length,
@@ -163,11 +186,16 @@ export async function runUnifiedAnalysis(url, options = {}) {
 
       results.summary.staticRulesApplicable = staticRules.length;
 
+      // Couverture DOM = règles requires_dom réellement couvertes par l'analyseur, pas nombre d'identifiants axe (r1-z04-002)
+      const supported = new Set(getSupportedRules());
+      const domCovered = domRules.filter(r => supported.has(r.id)).length;
+      results.summary.domRulesChecked = domCovered;
       results.summary.coverage = {
         dom: {
-          checked: results.summary.domRulesChecked,
+          checked: domCovered,
           total: domRules.length,
-          percentage: Math.round((results.summary.domRulesChecked / domRules.length) * 100)
+          percentage: domRules.length ? Math.round((domCovered / domRules.length) * 100) : 0,
+          note: `${domCovered} règles requires_dom automatisées ; ${supported.size} règles Opquast distinctes couvertes par axe-core et les checks custom`
         },
         heuristic: {
           checked: heuristicCount,
@@ -184,6 +212,12 @@ export async function runUnifiedAnalysis(url, options = {}) {
           note: 'Requires manual testing'
         }
       };
+    }
+
+    // Appliquer les filtres --theme / --rubrique aux violations (r1-z04-005)
+    if (theme || rubrique) {
+      results.summary.violations = filterViolationsByRules(results.summary.violations, rules);
+      results.summary.filteredRuleIds = rules.map(r => r.id);
     }
 
     // Update success based on DOM analysis
@@ -334,8 +368,11 @@ Examples:
     formatResults(results);
   }
 
-  process.exit(results.summary.violations.length > 0 ? 1 : 0);
+  // 0 conforme, 1 violations, 2 analyse échouée (r1-z04-003). exitCode plutôt que exit() : la sortie JSON n'est jamais tronquée (r1-z04-011)
+  process.exitCode = !results.success ? 2 : (results.summary.violations.length > 0 ? 1 : 0);
 }
 
-// Run if called directly
-main();
+// Run only when invoked as a CLI, never on import (r1-z04-001)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

@@ -11,7 +11,12 @@
 
 import { launchBrowser, createContext, navigateAndWait, closeBrowser } from '../utils/browser.js';
 import { runFullAnalysis } from '../checks/axe-checks.js';
-import { getSupportedOpquastRules, getAxeRuleIds } from '../utils/opquast-mapper.js';
+import { getSupportedOpquastRules, getAxeRuleIds, CUSTOM_CHECKS } from '../utils/opquast-mapper.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const PACKAGE_VERSION = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8')).version;
 
 /**
  * Analyze a URL for Opquast rule violations
@@ -59,6 +64,9 @@ export async function analyze(url, options = {}) {
       results.violations = results.violations.filter(v =>
         rules.includes(v.opquastId)
       );
+      results.stats.violationsCount = results.violations.length;
+      results.stats.totalViolationsCount = results.violations.length;
+      results.stats.filteredRules = rules;
     }
 
     // Cleanup
@@ -130,6 +138,9 @@ export async function analyzeWithContext(context, url, options = {}) {
       results.violations = results.violations.filter(v =>
         rules.includes(v.opquastId)
       );
+      results.stats.violationsCount = results.violations.length;
+      results.stats.totalViolationsCount = results.violations.length;
+      results.stats.filteredRules = rules;
     }
 
     await page.close();
@@ -168,19 +179,22 @@ export async function analyzeBatch(urls, options = {}, onProgress = null) {
   await launchBrowser();
   const context = await createContext();
 
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
+  try {
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
 
-    if (onProgress) {
-      onProgress({ current: i + 1, total: urls.length, url });
+      if (onProgress) {
+        onProgress({ current: i + 1, total: urls.length, url });
+      }
+
+      const result = await analyzeWithContext(context, url, options);
+      results.push(result);
     }
-
-    const result = await analyzeWithContext(context, url, options);
-    results.push(result);
+  } finally {
+    // Toujours libérer le navigateur, même sur exception (audit ShipGuard 2026-09-03, r1-z03-031)
+    await context.close().catch(() => {});
+    await closeBrowser().catch(() => {});
   }
-
-  await context.close();
-  await closeBrowser();
 
   return results;
 }
@@ -211,11 +225,11 @@ export function getAnalyzerInfo() {
 
   return {
     name: 'Opquast DOM Analyzer',
-    version: '1.1.0',
+    version: PACKAGE_VERSION,
     supportedRules,
     rulesCount: supportedRules.length,
     axeRulesCount: axeRules.length,
-    customChecksCount: supportedRules.length - axeRules.length,
+    customChecksCount: Object.keys(CUSTOM_CHECKS).length,
     capabilities: {
       singleUrl: true,
       batch: true,

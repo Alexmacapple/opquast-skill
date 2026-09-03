@@ -5,7 +5,15 @@
  */
 
 import AxeBuilder from '@axe-core/playwright';
-import { mapAxeResults, getAxeRuleIds, AXE_TO_OPQUAST } from '../utils/opquast-mapper.js';
+import {
+  mapAxeResults,
+  getAxeRuleIds,
+  getAxeRulesForOpquastId,
+  getSupportedOpquastRules,
+  CUSTOM_CHECKS,
+  LINK_NAME_RULE,
+  IMAGE_ALT_RULE
+} from '../utils/opquast-mapper.js';
 import { runCustomChecks } from './custom-checks.js';
 
 /**
@@ -26,10 +34,7 @@ export async function runAxeAnalysis(page, options = {}) {
 
     const results = await axeBuilder.analyze();
 
-    // Map violations to Opquast format
     const opquastViolations = mapAxeResults(results.violations);
-
-    // Optionally include incomplete (warnings)
     const opquastWarnings = includeWarnings
       ? mapAxeResults(results.incomplete)
       : [];
@@ -67,17 +72,16 @@ export async function runAxeAnalysis(page, options = {}) {
 }
 
 /**
- * Run specific Opquast rule check via axe
+ * Run every axe rule mapped to an Opquast id (audit ShipGuard 2026-09-03, r1-z03-010 :
+ * seule la première règle axe était exécutée pour les identifiants partagés comme 69)
  * @param {Page} page - Playwright page
  * @param {number} opquastId - Opquast rule ID
  * @returns {Promise<Object>} - Check result
  */
 export async function checkOpquastRule(page, opquastId) {
-  // Find axe rule for this Opquast ID
-  const axeRuleId = Object.entries(AXE_TO_OPQUAST)
-    .find(([_, mapping]) => mapping.opquastId === opquastId)?.[0];
+  const axeRuleIds = getAxeRulesForOpquastId(opquastId);
 
-  if (!axeRuleId) {
+  if (axeRuleIds.length === 0) {
     return {
       success: false,
       opquastId,
@@ -86,45 +90,39 @@ export async function checkOpquastRule(page, opquastId) {
     };
   }
 
-  const results = await runAxeAnalysis(page, { rules: [axeRuleId] });
+  const results = await runAxeAnalysis(page, { rules: axeRuleIds });
 
-  const violation = results.violations.find(v => v.opquastId === opquastId);
+  if (!results.success) {
+    return { success: false, opquastId, axeRuleIds, error: results.error, conformant: null };
+  }
+
+  const violations = results.violations.filter(v => v.opquastId === opquastId);
 
   return {
     success: true,
     opquastId,
-    axeRuleId,
-    conformant: !violation,
-    violation: violation || null,
-    nodes: violation?.nodes || []
+    axeRuleIds,
+    axeRuleId: axeRuleIds[0],
+    conformant: violations.length === 0,
+    violation: violations[0] || null,
+    violations,
+    nodes: violations.flatMap(v => v.nodes || [])
   };
 }
 
-/**
- * Check contrast (Opquast 182)
- * @param {Page} page - Playwright page
- * @returns {Promise<Object>}
- */
+/** Check contrast (Opquast 182) */
 export async function checkContrast(page) {
   return checkOpquastRule(page, 182);
 }
 
-/**
- * Check link names (Opquast 144)
- * @param {Page} page - Playwright page
- * @returns {Promise<Object>}
- */
+/** Check link names (Opquast 136 : chaque lien est doté d'un intitulé) */
 export async function checkLinkNames(page) {
-  return checkOpquastRule(page, 144);
+  return checkOpquastRule(page, LINK_NAME_RULE);
 }
 
-/**
- * Check image alt (Opquast 111)
- * @param {Page} page - Playwright page
- * @returns {Promise<Object>}
- */
+/** Check image alt (Opquast 118 : alternative textuelle des images porteuses d'information) */
 export async function checkImageAlt(page) {
-  return checkOpquastRule(page, 111);
+  return checkOpquastRule(page, IMAGE_ALT_RULE);
 }
 
 /**
@@ -136,31 +134,38 @@ export async function checkImageAlt(page) {
 export async function runFullAnalysis(page, options = {}) {
   const { includeCustomChecks = true } = options;
 
-  // 1. Run axe-core analysis (25 rules mapped)
   const axeResults = await runAxeAnalysis(page, options);
 
   if (!includeCustomChecks) {
     return axeResults;
   }
 
-  // 2. Run custom Playwright checks (8 rules)
   let customViolations = [];
+  let customChecksRun = Object.keys(CUSTOM_CHECKS).length;
+  let customChecksError = null;
   try {
     customViolations = await runCustomChecks(page);
   } catch (error) {
+    customChecksError = error.message;
+    customChecksRun = 0;
     console.error('Custom checks error:', error.message);
   }
 
-  // 3. Merge results
+  // Couverture exprimée en règles Opquast distinctes, pas en identifiants axe (audit ShipGuard 2026-09-03, r1-z03-014)
+  const opquastRuleIds = getSupportedOpquastRules();
+
   return {
     ...axeResults,
     violations: [...axeResults.violations, ...customViolations],
     customChecks: customViolations,
+    customChecksError,
     stats: {
       ...axeResults.stats,
-      customChecksRun: 8,
+      axeRulesRun: axeResults.stats.rulesChecked,
+      customChecksRun,
       customViolationsCount: customViolations.length,
-      totalRulesChecked: axeResults.stats.rulesChecked + 8,
+      opquastRuleIds,
+      totalRulesChecked: opquastRuleIds.length,
       totalViolationsCount: axeResults.stats.violationsCount + customViolations.length
     }
   };

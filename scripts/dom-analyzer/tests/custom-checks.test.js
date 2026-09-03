@@ -7,6 +7,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { launchBrowser, createContext, closeBrowser } from '../utils/browser.js';
+import { readFileSync } from 'fs';
+
+const rulesById = Object.fromEntries(
+  JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'rules', 'opquast-v5.json'), 'utf-8')).rules.map(r => [r.id, r])
+);
 import { runCustomChecks, runCustomCheck } from '../checks/custom-checks.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -67,7 +72,7 @@ describe('Custom Checks', () => {
       expect(result).not.toBeNull();
       expect(result.opquastId).toBe(191);
       expect(result.nodes.length).toBeGreaterThan(0);
-      expect(result.severity).toBe('minor');
+      expect(result.severity).toBe(rulesById[191].severity);
 
       await page.close();
     });
@@ -113,7 +118,7 @@ describe('Custom Checks', () => {
       // May or may not find violations depending on browser defaults
       if (result) {
         expect(result.opquastId).toBe(165);
-        expect(result.severity).toBe('critical');
+        expect(result.severity).toBe(rulesById[165].severity);
       }
 
       await page.close();
@@ -142,7 +147,7 @@ describe('Custom Checks', () => {
       // Test page has a div with onclick and tabindex=-1
       if (result) {
         expect(result.opquastId).toBe(166);
-        expect(result.severity).toBe('critical');
+        expect(result.severity).toBe(rulesById[166].severity);
         expect(result.nodes.length).toBeGreaterThan(0);
       }
 
@@ -203,7 +208,7 @@ describe('Custom Checks', () => {
 
       expect(result).not.toBeNull();
       expect(result.opquastId).toBe(186);
-      expect(result.severity).toBe('critical');
+      expect(result.severity).toBe(rulesById[186].severity);
 
       // Check that violation mentions size
       const hasSizeMessage = result.nodes.some(n =>
@@ -268,5 +273,20 @@ describe('Custom Checks', () => {
 
       await page.close();
     });
+  });
+});
+
+describe('Rule 166 : élément cliquable non focalisable (audit ShipGuard 2026-09-03, r1-z03-023)', () => {
+  it('flags a div[onclick] without tabindex and accepts one with tabindex=0', async () => {
+    await launchBrowser();
+    const context = await createContext();
+    const page = await context.newPage();
+    await page.setContent('<html lang="fr"><body><div onclick="void 0">Cliquez</div><div onclick="void 0" tabindex="0">Ok</div><button>b</button></body></html>');
+    const result = await runCustomCheck(page, 166);
+    await page.close();
+    await context.close();
+    expect(result).not.toBeNull();
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0].html).toContain('Cliquez');
   });
 });

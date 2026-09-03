@@ -39,33 +39,27 @@ describe('Mapping Coherence', () => {
       expect(invalidIds).toEqual([]);
     });
 
-    it('should have titles matching Opquast rules', () => {
+    it('should have titles strictly equal to the Opquast reference titles', () => {
+      // Audit ShipGuard 2026-09-03 (r1-z03-006, r1-z04-001) : un seul mot commun laissait passer 13 titres faux
       const mismatches = [];
-
       Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
         const opquastRule = rulesById[mapping.opquastId];
         if (!opquastRule) return;
-
-        // Check title coherence using common significant words
-        const mapperTitle = mapping.title.toLowerCase();
-        const jsonTitle = opquastRule.title.toLowerCase();
-
-        const mapperWords = mapperTitle.split(/\s+/).filter(w => w.length > 3);
-        const jsonWords = jsonTitle.split(/\s+/).filter(w => w.length > 3);
-        const commonWords = mapperWords.filter(w =>
-          jsonWords.some(jw => jw.includes(w) || w.includes(jw))
-        );
-
-        if (commonWords.length === 0) {
-          mismatches.push({
-            axeRule,
-            opquastId: mapping.opquastId,
-            mapperTitle: mapping.title,
-            jsonTitle: opquastRule.title
-          });
+        if (mapping.title !== opquastRule.title) {
+          mismatches.push({ axeRule, opquastId: mapping.opquastId, mapperTitle: mapping.title, jsonTitle: opquastRule.title });
         }
       });
+      expect(mismatches).toEqual([]);
+    });
 
+    it('should have severities equal to the Opquast reference severities', () => {
+      const mismatches = [];
+      Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
+        const opquastRule = rulesById[mapping.opquastId];
+        if (opquastRule && mapping.severity !== opquastRule.severity) {
+          mismatches.push({ axeRule, opquastId: mapping.opquastId, mapper: mapping.severity, json: opquastRule.severity });
+        }
+      });
       expect(mismatches).toEqual([]);
     });
 
@@ -99,6 +93,18 @@ describe('Mapping Coherence', () => {
       });
 
       expect(invalidIds).toEqual([]);
+    });
+
+    it('should have titles and severities equal to the Opquast reference', () => {
+      const mismatches = [];
+      Object.entries(CUSTOM_CHECKS).forEach(([opquastId, check]) => {
+        const rule = rulesById[Number(opquastId)];
+        if (!rule) return;
+        if (check.title !== rule.title || check.severity !== rule.severity) {
+          mismatches.push({ opquastId, title: check.title, jsonTitle: rule.title, severity: check.severity, jsonSeverity: rule.severity });
+        }
+      });
+      expect(mismatches).toEqual([]);
     });
 
     it('should have valid check types', () => {

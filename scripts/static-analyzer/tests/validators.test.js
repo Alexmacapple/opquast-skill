@@ -4,7 +4,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { STATIC_VALIDATORS, runStaticValidators, getValidatorInfo } from './validators.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const rulesById = Object.fromEntries(JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'rules', 'opquast-v5.json'), 'utf-8')).rules.map(r => [r.id, r]));
+import { STATIC_VALIDATORS, runStaticValidators, getValidatorInfo } from '../validators.js';
 
 describe('Static Validators', () => {
   describe('Rule 3: Meta description', () => {
@@ -106,28 +110,28 @@ describe('Static Validators', () => {
     });
   });
 
-  describe('Rule 127: No autoplay', () => {
+  describe('Rule 125: No autoplay', () => {
     it('should pass without autoplay', () => {
       const html = '<html><body><video src="test.mp4" controls></video></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(true);
     });
 
     it('should fail with autoplay on video', () => {
       const html = '<html><body><video src="test.mp4" autoplay></video></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(false);
     });
 
     it('should fail with autoplay on audio', () => {
       const html = '<html><body><audio src="test.mp3" autoplay></audio></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(false);
     });
 
     it('should detect iframe autoplay', () => {
       const html = '<html><body><iframe src="https://youtube.com/embed/abc?autoplay=1"></iframe></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(false);
     });
   });
@@ -290,5 +294,34 @@ describe('getValidatorInfo', () => {
     expect(info.rules).toHaveLength(10);
     expect(info.confidenceLevel).toBeDefined();
     expect(info.confidenceLevel.confidence).toBe(0.75);
+  });
+});
+
+describe('Reference alignment (audit ShipGuard 2026-09-03, r1-z04-028)', () => {
+  it('every validator carries the reference title and severity of its rule', () => {
+    const mismatches = Object.entries(STATIC_VALIDATORS)
+      .filter(([id, v]) => !rulesById[id] || v.title !== rulesById[id].title || v.severity !== rulesById[id].severity)
+      .map(([id, v]) => ({ id, title: v.title, severity: v.severity }));
+    expect(mismatches).toEqual([]);
+  });
+});
+
+describe('Audit ShipGuard 2026-09-03 : lang strict et erreurs de validateur', () => {
+  it('rejects xml:lang and data-lang as substitutes for lang (r1-z04-032)', () => {
+    expect(STATIC_VALIDATORS[130].check('<html xml:lang="fr"><body></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[130].check('<html data-lang="fr"><body></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[130].check('<html lang="fr"><body></body></html>').valid).toBe(true);
+    expect(STATIC_VALIDATORS[130].check('<html class="x" lang="fr-FR"><body></body></html>').valid).toBe(true);
+  });
+
+  it('reports a throwing validator under errors, not skipped (r1-z04-031)', () => {
+    STATIC_VALIDATORS[999] = { title: 'faux', severity: 'minor', check: () => { throw new Error('boum'); } };
+    try {
+      const r = runStaticValidators('<html lang="fr"></html>');
+      expect(r.errors.map(e => e.opquastId)).toContain(999);
+      expect(r.skipped.map(e => e.opquastId)).not.toContain(999);
+    } finally {
+      delete STATIC_VALIDATORS[999];
+    }
   });
 });

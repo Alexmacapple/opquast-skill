@@ -21,7 +21,9 @@ allowed-tools:
   - "Glob(**/*)"
   - "Grep(**/*)"
   - "Bash(node scripts/*)"
-  - "Bash(python3 scripts/*)"
+  - "Bash(python3 scripts/validate.py*)"
+  - "Bash(python3 scripts/sync-rules-from-api.py --check*)"
+  - "Bash(python3 scripts/sync-rules-from-api.py --dry-run*)"
 ---
 
 # Opquast Checker
@@ -71,12 +73,13 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 
 ## Couverture
 
-193/245 règles (79%) via static + DOM combinés. Détails, catégories et limitations SPA : voir `references/couverture-limitations.md`
+166/245 règles (68 %) : 160 règles `static` évaluées par le modèle après WebFetch, plus 6 règles `requires_dom` automatisées par le DOM Analyzer (qui couvre 23 règles Opquast distinctes, dont 17 règles static vérifiées de façon déterministe par axe-core). Détails et limitations SPA : voir `references/couverture-limitations.md`
 
 ## Ressources
 
 - `rules/opquast-v5.json` : 245 règles (id, title, category, rubrique, tags, phases, opquast_id, objectives, solution, verification, severity). Titres, tags, rubriques, phases et identifiants proviennent de l'API ; objectifs, solutions et vérifications proviennent des fiches `references/regles-v5/`
-- `scripts/sync-rules-from-api.py` : alignement du fichier de règles sur l'API (`--check`, `--dry-run`, `--write`, `--full`)
+- `scripts/sync-rules-from-api.py` : alignement du fichier de règles sur l'API (`--check`, `--dry-run`, `--write`, `--full`, `--rules <copie>`)
+- `scripts/tests/` : tests pytest des scripts Python ; `scripts/dom-analyzer/tests/` et `scripts/static-analyzer/tests/` : tests vitest ; `scripts/audit-mappings.js` : cohérence stricte du mapper avec le référentiel
 - `rules/site-profiles.json` : Détection et filtrage par type de site (6 profils)
 - `schemas/audit-report.json` : Schéma JSON pour les rapports structurés
 - Dossier des règles V5 : 245 règles détaillées individuelles
@@ -116,7 +119,11 @@ Le fichier local et l'API doivent rester alignés. Contrôle de dérive (code re
 python3 scripts/sync-rules-from-api.py --check
 ```
 
-Mise à jour des titres, tags, rubriques, phases et identifiants : `--write`. Avec `--full` (clé API requise), objectifs, solutions et vérifications sont aussi rafraîchis depuis la checklist étendue. Après une mise à jour, relancer `python3 scripts/validate.py`.
+Mise à jour des titres, tags, rubriques, phases et identifiants : `--write`. Codes de retour : 0 aligné, 1 dérive ou anomalie (écriture refusée : titre vide, doublon, règle absente d'un côté, valeur hors schéma), 2 API injoignable ou usage. Après une mise à jour, relancer `python3 scripts/validate.py` (accepte `--rules <fichier>` pour valider une copie).
+
+Source de référence des corps de règles (`objectives`, `solution`, `verification`) : les fiches `references/regles-v5/`, injectées par `scripts/enrich-rules.py`. `--full` (clé API requise) les remplace explicitement par la checklist étendue et trace `enrichment_source: api` dans le fichier ; ne pas mélanger les deux sans le décider.
+
+Tests : `python3 -m pytest scripts/tests -q` ; `cd scripts/dom-analyzer && npm test` ; `cd scripts/static-analyzer && npm test` ; `cd scripts && npm run audit:mappings`.
 
 ## Intelligence contextuelle
 
@@ -131,7 +138,7 @@ Lors de l'analyse, détecter automatiquement le profil du site via `rules/site-p
 | `institutionnel` | démarches, services publics, délibérations |
 | `newsletter` | formulaire newsletter, subscribe |
 
-Pour chaque profil, le fichier définit `rubriques_prioritaires`, `regles_critiques`, `regles_exclues` et `pages_a_analyser`.
+Pour chaque profil, le fichier définit `rubriques_prioritaires`, `regles_critiques`, `regles_exclues` et `pages_a_analyser`. `detection_priority` fixe l'ordre d'essai des profils (un site e-commerce avec newsletter est classé e-commerce) et `fallback_profile` le profil appliqué à défaut : `vitrine`, qui exclut les 39 règles E-Commerce.
 
 ## Format de sortie
 
@@ -146,7 +153,7 @@ Structure du rapport : Couverture -> Quick Wins -> Non-conformités par priorit�
 
 # Analyse Opquast : Boutique Example
 **Profil** : e-commerce | **Non conformes** : 14 | **DOM** : 33 non vérifiables
-Quick Wins : règle 191 (justify), 237 (user-select) | Accessibilité : règle 111 (alt images)
+Quick Wins : règle 191 (justify), 237 (user-select) | Accessibilité : règle 118 (alternative des images)
 ```
 
 Rapport complet et template : voir `references/format-sortie.md`
@@ -154,12 +161,12 @@ Rapport complet et template : voir `references/format-sortie.md`
 ### Exemple `/opquast --regle`
 
 ```
-/opquast --regle 42
+/opquast --regle 69
 
-# Règle 42 : Les liens sont visuellement différenciés du reste du contenu
-**Rubrique** : Liens | **Sévérité** : critical | **Tags** : Accessibilité
-**Solution** : Utiliser couleur + soulignement (pas la couleur seule)
-→ https://checklists.opquast.com/fr/qualite-numerique/42
+# Règle 69 : Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre.
+**Rubrique** : Formulaires | **Sévérité** : critical | **Tags** : Basics, Accessibilité | **Phases** : Développement
+**Solution** : `label for` associé à l'`id` du champ, ou `aria-label` / `aria-labelledby` si l'étiquette n'est pas affichée
+→ https://checklists.opquast.com/fr/qualite-numerique/69
 ```
 
 ### Exemple `/opquast --search`
@@ -170,8 +177,8 @@ Rapport complet et template : voir `references/format-sortie.md`
 # 30 règles contenant "formulaire"
 | ID | Titre | Sévérité |
 |----|-------|----------|
-| 67 | Chaque champ associé à une étiquette | critical |
-| 69 | Champs obligatoires indiqués | critical |
+| 69 | Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre. | critical |
+| 71 | L'étiquette de chaque champ de formulaire indique si la saisie est obligatoire. | critical |
 ```
 
 ### Exemple `/opquast --theme`
@@ -180,7 +187,7 @@ Rapport complet et template : voir `references/format-sortie.md`
 /opquast https://example.com --theme seo
 
 # Analyse Opquast : Example — SEO (37 règles)
-**Non conformes** : 5 | Règle 3 : meta description absente | Règle 130 : URL non signifiantes
+**Non conformes** : 5 | Règle 3 : métadonnée de description absente | Règle 103 : titre de page non identifiant
 ```
 
 Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/explorateur-exemples.md`
@@ -192,7 +199,7 @@ Exemples complets pour `--list`, `--rubrique`, `--severity` : voir `references/e
 | WebFetch échoue (URL inaccessible) | Proposer des captures d'écran, préciser les limitations, demander de vérifier l'URL |
 | `rules/opquast-v5.json` introuvable | STOPPER l'analyse. Signaler : "Fichier de règles manquant. Vérifier l'installation du skill." |
 | `rules/site-profiles.json` introuvable | Continuer sans profilage. Appliquer toutes les règles static sans filtrage |
-| Profil de site non reconnu | Utiliser le profil `vitrine` par défaut. Mentionner dans le rapport : "Profil non détecté, analyse généraliste appliquée" |
+| Profil de site non reconnu | Utiliser le profil `vitrine` par défaut (`fallback_profile`). Mentionner dans le rapport : "Profil non détecté, profil vitrine appliqué par défaut (règles E-Commerce exclues)" |
 | HTML source quasi-vide (SPA détectée) | Avertir l'utilisateur. Proposer de fournir le HTML rendu ou d'utiliser le DOM Analyzer |
 | `scripts/bridge.js` échoue ou absent | Continuer sans analyse DOM. Classer toutes les règles `requires_dom` dans la section "Non vérifiables" |
 | API Opquast répond `401`/`403` | Signaler l'erreur d'authentification, ne pas afficher la clé, utiliser le fallback local si possible |

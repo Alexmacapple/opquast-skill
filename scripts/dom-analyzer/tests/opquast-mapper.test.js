@@ -3,6 +3,9 @@
  * Tests all mapping functions and validates the 25 axe-core rule mappings
  */
 
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { describe, it, expect } from 'vitest';
 import {
   AXE_TO_OPQUAST,
@@ -31,6 +34,12 @@ const createMockViolation = (id, overrides = {}) => ({
   ],
   ...overrides
 });
+
+const rulesById = Object.fromEntries(
+  JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'rules', 'opquast-v5.json'), 'utf-8')).rules.map(r => [r.id, r])
+);
+const sev = (id) => rulesById[id].severity;
+const title = (id) => rulesById[id].title;
 
 describe('AXE_TO_OPQUAST Mapping', () => {
   describe('Structure validation', () => {
@@ -77,63 +86,63 @@ describe('AXE_TO_OPQUAST Mapping', () => {
   describe('Specific mappings', () => {
     it('should map color-contrast to Opquast 182', () => {
       expect(AXE_TO_OPQUAST['color-contrast'].opquastId).toBe(182);
-      expect(AXE_TO_OPQUAST['color-contrast'].severity).toBe('critical');
+      expect(AXE_TO_OPQUAST['color-contrast'].severity).toBe(sev(182));
     });
 
     it('should map image-alt to Opquast 118', () => {
       expect(AXE_TO_OPQUAST['image-alt'].opquastId).toBe(118);
-      expect(AXE_TO_OPQUAST['image-alt'].severity).toBe('critical');
+      expect(AXE_TO_OPQUAST['image-alt'].severity).toBe(sev(118));
     });
 
     it('should map link-name to Opquast 136', () => {
       expect(AXE_TO_OPQUAST['link-name'].opquastId).toBe(136);
-      expect(AXE_TO_OPQUAST['link-name'].severity).toBe('critical');
+      expect(AXE_TO_OPQUAST['link-name'].severity).toBe(sev(136));
     });
 
     it('should map document-title to Opquast 103', () => {
       expect(AXE_TO_OPQUAST['document-title'].opquastId).toBe(103);
-      expect(AXE_TO_OPQUAST['document-title'].severity).toBe('critical');
+      expect(AXE_TO_OPQUAST['document-title'].severity).toBe(sev(103));
     });
 
     it('should map html-has-lang to Opquast 130', () => {
       expect(AXE_TO_OPQUAST['html-has-lang'].opquastId).toBe(130);
-      expect(AXE_TO_OPQUAST['html-has-lang'].severity).toBe('critical');
+      expect(AXE_TO_OPQUAST['html-has-lang'].severity).toBe(sev(130));
     });
 
     it('should map bypass to Opquast 164', () => {
       expect(AXE_TO_OPQUAST['bypass'].opquastId).toBe(164);
-      expect(AXE_TO_OPQUAST['bypass'].severity).toBe('major');
+      expect(AXE_TO_OPQUAST['bypass'].severity).toBe(sev(164));
     });
 
     it('should map label to Opquast 69', () => {
       expect(AXE_TO_OPQUAST['label'].opquastId).toBe(69);
-      expect(AXE_TO_OPQUAST['label'].severity).toBe('critical');
+      expect(AXE_TO_OPQUAST['label'].severity).toBe(sev(69));
     });
 
     it('should map heading-order to Opquast 234', () => {
       expect(AXE_TO_OPQUAST['heading-order'].opquastId).toBe(234);
-      expect(AXE_TO_OPQUAST['heading-order'].severity).toBe('major');
+      expect(AXE_TO_OPQUAST['heading-order'].severity).toBe(sev(234));
     });
   });
 
   describe('Phase 4 additions (17 new mappings)', () => {
     const phase4Mappings = [
-      ['button-name', 69, 'critical'],
-      ['frame-title', 120, 'major'],
-      ['aria-required-attr', 69, 'critical'],
-      ['input-image-alt', 118, 'critical'],
-      ['empty-heading', 234, 'major'],
-      ['page-has-heading-one', 234, 'major'],
-      ['td-has-header', 242, 'major'],
-      ['th-has-data-cells', 243, 'major'],
-      ['object-alt', 120, 'critical'],
-      ['area-alt', 117, 'critical'],
-      ['svg-img-alt', 118, 'critical'],
-      ['select-name', 69, 'critical'],
-      ['html-lang-valid', 130, 'major'],
-      ['meta-viewport', 193, 'critical'],
-      ['duplicate-id', 236, 'major'],
-      ['list', 235, 'minor']
+      ['button-name', 69, sev(69)],
+      ['frame-title', 120, sev(120)],
+      ['aria-required-attr', 69, sev(69)],
+      ['input-image-alt', 118, sev(118)],
+      ['empty-heading', 234, sev(234)],
+      ['page-has-heading-one', 234, sev(234)],
+      ['td-has-header', 242, sev(242)],
+      ['th-has-data-cells', 243, sev(243)],
+      ['object-alt', 120, sev(120)],
+      ['area-alt', 117, sev(117)],
+      ['svg-img-alt', 118, sev(118)],
+      ['select-name', 69, sev(69)],
+      ['html-lang-valid', 130, sev(130)],
+      ['meta-viewport', 193, sev(193)],
+      ['duplicate-id', 236, sev(236)],
+      ['list', 235, sev(235)]
     ];
 
     phase4Mappings.forEach(([axeRule, expectedOpquastId, expectedSeverity]) => {
@@ -165,7 +174,7 @@ describe('CUSTOM_CHECKS', () => {
 
   it('should include target size check (186)', () => {
     expect(CUSTOM_CHECKS[186]).toBeDefined();
-    expect(CUSTOM_CHECKS[186].severity).toBe('critical');
+    expect(CUSTOM_CHECKS[186].severity).toBe(sev(186));
   });
 
   it('should include context menu check (238)', () => {
@@ -180,8 +189,8 @@ describe('mapAxeViolation', () => {
 
     expect(result).not.toBeNull();
     expect(result.opquastId).toBe(118);
-    expect(result.title).toBe("Chaque image porteuse d'information est dotée d'une alternative textuelle appropriée");
-    expect(result.severity).toBe('critical');
+    expect(result.title).toBe(title(118));
+    expect(result.severity).toBe(sev(118));
     expect(result.axeRuleId).toBe('image-alt');
     expect(result.impact).toBe('critical');
     expect(result.nodes).toHaveLength(1);
@@ -435,8 +444,8 @@ describe('createCustomCheckResult', () => {
   it('should include check metadata', () => {
     const result = createCustomCheckResult(186, { nodes: [] });
 
-    expect(result.title).toBe('La taille des éléments cliquables est suffisante');
-    expect(result.severity).toBe('critical');
+    expect(result.title).toBe(title(186));
+    expect(result.severity).toBe(sev(186));
     expect(result.checkType).toBe('target-size');
   });
 
@@ -467,5 +476,12 @@ describe('getConfidenceInfo', () => {
     const info = getConfidenceInfo('unknown-source');
     expect(info.confidence).toBe(0);
     expect(info.label).toBe('manual');
+  });
+});
+
+describe('mapAxeViolation sans nodes (audit ShipGuard 2026-09-03, r1-z04-049)', () => {
+  it('returns an empty nodes array instead of throwing', () => {
+    const result = mapAxeViolation({ id: 'image-alt', impact: 'critical', description: 'x', helpUrl: 'u' });
+    expect(result.nodes).toEqual([]);
   });
 });
