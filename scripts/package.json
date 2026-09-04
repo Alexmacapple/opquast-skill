@@ -1,0 +1,12 @@
+{
+  "name": "opquast-skill-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Porte le mode ESM de bridge.js et audit-mappings.js (Node 18 et 20 compris) ; les analyseurs ont leur propre package.json",
+  "scripts": {
+    "audit:mappings": "node audit-mappings.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

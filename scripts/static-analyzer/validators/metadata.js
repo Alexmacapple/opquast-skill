@@ -6,7 +6,7 @@
 export const METADATA_VALIDATORS = {
   // Rule 3: Meta description present
   3: {
-    title: 'Le code source contient une meta description',
+    title: 'Le code source de chaque page contient une métadonnée qui en décrit le contenu.',
     severity: 'major',
     check: (html) => {
       const hasMetaDesc = /<meta\s+[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["'][^"']+["']/i.test(html) ||
@@ -24,14 +24,18 @@ export const METADATA_VALIDATORS = {
 
   // Rule 103: Page title is present and meaningful
   103: {
-    title: 'Le titre de page permet d\'identifier son contenu',
+    title: 'Le titre de chaque page permet d\'identifier son contenu.',
     severity: 'critical',
     check: (html) => {
-      const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      // Le titre du document se lit dans <head> : un <title> de SVG inline placé avant ne doit pas
+      // le supplanter, et un titre contenant du balisage ne doit pas être tronqué (r1-z04-039).
+      const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+      const titleMatch = (headMatch && headMatch[1].match(/<title[^>]*>([\s\S]*?)<\/title>/i)) ||
+                         html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
       if (!titleMatch) {
         return { valid: false, confidence: 1.0, details: 'Balise title manquante' };
       }
-      const title = titleMatch[1].trim();
+      const title = titleMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       if (title.length === 0) {
         return { valid: false, confidence: 1.0, details: 'Balise title vide' };
       }
@@ -44,8 +48,8 @@ export const METADATA_VALIDATORS = {
 
   // Rule 104: Favicon present
   104: {
-    title: 'Favicon present',
-    severity: 'minor',
+    title: 'Le code source des pages contient un appel valide à une icône de favori.',
+    severity: 'major',
     check: (html) => {
       const hasFavicon = /<link[^>]+rel\s*=\s*["'](icon|shortcut icon|apple-touch-icon)["']/i.test(html);
       if (hasFavicon) {
@@ -57,8 +61,8 @@ export const METADATA_VALIDATORS = {
 
   // Rule 106: Canonical URL
   106: {
-    title: 'URL canonique declaree',
-    severity: 'major',
+    title: 'Le numéro d\'immatriculation délivré aux sociétés ou organisations au terme des procédures légales d\'enregistrement en vigueur dans leur pays est indiqué.',
+    severity: 'minor',
     check: (html) => {
       const hasCanonical = /<link[^>]+rel\s*=\s*["']canonical["'][^>]+href\s*=\s*["'][^"']+["']/i.test(html) ||
                           /<link[^>]+href\s*=\s*["'][^"']+["'][^>]+rel\s*=\s*["']canonical["']/i.test(html);
@@ -71,7 +75,7 @@ export const METADATA_VALIDATORS = {
 
   // Rule 108: OpenGraph tags
   108: {
-    title: 'Balises OpenGraph presentes',
+    title: 'Les délais de réponse aux demandes d\'information sont indiqués.',
     severity: 'minor',
     check: (html) => {
       const hasOgTitle = /<meta[^>]+property\s*=\s*["']og:title["']/i.test(html);
@@ -90,7 +94,7 @@ export const METADATA_VALIDATORS = {
 
   // Rule 109: Twitter Cards
   109: {
-    title: 'Twitter Cards configurees',
+    title: 'Les horaires et tarifs de fonctionnement des services mis à la disposition des utilisateurs sont indiqués.',
     severity: 'minor',
     check: (html) => {
       const hasTwitterCard = /<meta[^>]+name\s*=\s*["']twitter:card["']/i.test(html);
@@ -108,10 +112,11 @@ export const METADATA_VALIDATORS = {
 
   // Rule 130: HTML lang attribute present
   130: {
-    title: 'La langue principale du contenu est indiquee',
+    title: 'Le code source de chaque page indique la langue principale du contenu.',
     severity: 'critical',
     check: (html) => {
-      const hasLang = /<html[^>]+lang\s*=\s*["'][a-z]{2,5}(-[a-zA-Z]{2,5})?["']/i.test(html);
+      // Seul l'attribut lang compte : xml:lang ou data-lang ne satisfont pas la règle (r1-z04-032)
+      const hasLang = /<html[^>]*\s(?<!xml:)(?<!data-)lang\s*=\s*["'][a-z]{2,5}(-[a-zA-Z]{2,5})?["']/i.test(html);
       if (hasLang) {
         return { valid: true, confidence: 1.0 };
       }
@@ -125,8 +130,8 @@ export const METADATA_VALIDATORS = {
 
   // Rule 221: Charset UTF-8
   221: {
-    title: 'Encodage UTF-8 declare',
-    severity: 'critical',
+    title: 'Le serveur ne force pas la redirection vers la version ou l\'application mobile.',
+    severity: 'minor',
     check: (html) => {
       const hasUtf8 = /<meta[^>]+charset\s*=\s*["']?utf-8["']?/i.test(html) ||
                      /content-type[^>]+charset\s*=\s*utf-8/i.test(html);
@@ -143,8 +148,8 @@ export const METADATA_VALIDATORS = {
 
   // Rule 222: Doctype HTML5
   222: {
-    title: 'Doctype HTML5 declare',
-    severity: 'major',
+    title: 'Le serveur envoie un code HTTP 404 pour les ressources non trouvées.',
+    severity: 'minor',
     check: (html) => {
       const hasHtml5Doctype = /^[\s]*<!DOCTYPE\s+html>/i.test(html);
       if (hasHtml5Doctype) {
@@ -160,8 +165,8 @@ export const METADATA_VALIDATORS = {
 
   // Rule 225: Structured data present
   225: {
-    title: 'Donnees structurees presentes',
-    severity: 'minor',
+    title: 'Le menu principal de navigation figure sur les pages d\'erreur personnalisées.',
+    severity: 'critical',
     check: (html) => {
       const hasJsonLd = /<script[^>]+type\s*=\s*["']application\/ld\+json["']/i.test(html);
       const hasMicrodata = /itemscope|itemprop|itemtype/i.test(html);

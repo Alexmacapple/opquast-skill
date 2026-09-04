@@ -5,9 +5,18 @@
  */
 
 import AxeBuilder from '@axe-core/playwright';
-import { mapAxeResults, getAxeRuleIds, AXE_TO_OPQUAST } from '../utils/opquast-mapper.js';
+import {
+  mapAxeResults,
+  getAxeRuleIds,
+  getAxeRulesForOpquastId,
+  getSupportedOpquastRules,
+  AXE_TO_OPQUAST,
+  CUSTOM_CHECKS,
+  LINK_NAME_RULE,
+  IMAGE_ALT_RULE
+} from '../utils/opquast-mapper.js';
 import { runCustomChecks } from './custom-checks.js';
-import { runInteractionChecks } from './interaction-checks.js';
+import { runInteractionChecks, INTERACTION_CHECKS } from './interaction-checks.js';
 
 /**
  * Run axe-core analysis on a page
@@ -27,10 +36,7 @@ export async function runAxeAnalysis(page, options = {}) {
 
     const results = await axeBuilder.analyze();
 
-    // Map violations to Opquast format
     const opquastViolations = mapAxeResults(results.violations);
-
-    // Optionally include incomplete (warnings)
     const opquastWarnings = includeWarnings
       ? mapAxeResults(results.incomplete)
       : [];
@@ -68,17 +74,16 @@ export async function runAxeAnalysis(page, options = {}) {
 }
 
 /**
- * Run specific Opquast rule check via axe
+ * Run every axe rule mapped to an Opquast id (audit ShipGuard 2026-09-03, r1-z03-010 :
+ * seule la première règle axe était exécutée pour les identifiants partagés comme 69)
  * @param {Page} page - Playwright page
  * @param {number} opquastId - Opquast rule ID
  * @returns {Promise<Object>} - Check result
  */
 export async function checkOpquastRule(page, opquastId) {
-  // Find axe rule for this Opquast ID
-  const axeRuleId = Object.entries(AXE_TO_OPQUAST)
-    .find(([_, mapping]) => mapping.opquastId === opquastId)?.[0];
+  const axeRuleIds = getAxeRulesForOpquastId(opquastId);
 
-  if (!axeRuleId) {
+  if (axeRuleIds.length === 0) {
     return {
       success: false,
       opquastId,
@@ -87,106 +92,108 @@ export async function checkOpquastRule(page, opquastId) {
     };
   }
 
-  const results = await runAxeAnalysis(page, { rules: [axeRuleId] });
+  const results = await runAxeAnalysis(page, { rules: axeRuleIds });
 
-  const violation = results.violations.find(v => v.opquastId === opquastId);
+  if (!results.success) {
+    return { success: false, opquastId, axeRuleIds, error: results.error, conformant: null };
+  }
+
+  const violations = results.violations.filter(v => v.opquastId === opquastId);
 
   return {
     success: true,
     opquastId,
-    axeRuleId,
-    conformant: !violation,
-    violation: violation || null,
-    nodes: violation?.nodes || []
+    axeRuleIds,
+    axeRuleId: axeRuleIds[0],
+    conformant: violations.length === 0,
+    violation: violations[0] || null,
+    violations,
+    nodes: violations.flatMap(v => v.nodes || [])
   };
 }
 
-/**
- * Check contrast (Opquast 182)
- * @param {Page} page - Playwright page
- * @returns {Promise<Object>}
+/*
+ * Helpers par règle : API publique programmatique du module, non appelée par la CLI.
+ * Conservés après l'audit (r1-z03-038) et désormais couverts par tests/z03-axe-checks-shape.test.js.
  */
+
+/** Check contrast (Opquast 182) */
 export async function checkContrast(page) {
   return checkOpquastRule(page, 182);
 }
 
-/**
- * Check link names (Opquast 144)
- * @param {Page} page - Playwright page
- * @returns {Promise<Object>}
- */
+/** Check link names (Opquast 136 : chaque lien est doté d'un intitulé) */
 export async function checkLinkNames(page) {
-  return checkOpquastRule(page, 144);
+  return checkOpquastRule(page, LINK_NAME_RULE);
 }
 
-/**
- * Check image alt (Opquast 111)
- * @param {Page} page - Playwright page
- * @returns {Promise<Object>}
- */
+/** Check image alt (Opquast 118 : alternative textuelle des images porteuses d'information) */
 export async function checkImageAlt(page) {
-  return checkOpquastRule(page, 111);
+  return checkOpquastRule(page, IMAGE_ALT_RULE);
 }
 
 /**
- * Run full analysis combining axe-core, custom, and interaction checks
+ * Run full analysis combining axe-core, custom Playwright checks and interaction checks (PRD-004)
  * @param {Page} page - Playwright page object
  * @param {Object} options - Analysis options
  * @returns {Promise<Object>} - Combined analysis results
  */
 export async function runFullAnalysis(page, options = {}) {
-  const {
-    includeCustomChecks = true,
-    includeInteractionChecks = true
-  } = options;
+  // includeCustomChecks=false signifie « axe seulement » : les checks d'interaction suivent ce réglage sauf demande explicite
+  const { includeCustomChecks = true, includeInteractionChecks = includeCustomChecks } = options;
 
-  // 1. Run axe-core analysis (25 rules mapped)
   const axeResults = await runAxeAnalysis(page, options);
 
-  if (!includeCustomChecks && !includeInteractionChecks) {
-    return axeResults;
-  }
+  // Couverture exprimée en règles Opquast distinctes, pas en identifiants axe (audit ShipGuard 2026-09-03, r1-z03-014)
+  const axeOpquastIds = [...new Set(Object.values(AXE_TO_OPQUAST).map(m => m.opquastId))];
+  const customIds = includeCustomChecks ? Object.keys(CUSTOM_CHECKS).map(Number) : [];
+  const interactionIds = includeInteractionChecks ? Object.keys(INTERACTION_CHECKS).map(Number) : [];
+  const opquastRuleIds = [...new Set([...axeOpquastIds, ...customIds, ...interactionIds])].sort((a, b) => a - b);
 
-  // 2. Run custom Playwright checks (8 rules)
   let customViolations = [];
+  let customChecksRun = includeCustomChecks ? Object.keys(CUSTOM_CHECKS).length : 0;
+  let customChecksError = null;
   if (includeCustomChecks) {
     try {
       customViolations = await runCustomChecks(page);
     } catch (error) {
+      customChecksError = error.message;
+      customChecksRun = 0;
       console.error('Custom checks error:', error.message);
     }
   }
 
-  // 3. Run interaction checks (18 rules) - PRD-004
+  // Checks d'interaction (18 règles, PRD-004) : même traitement d'erreur que les checks custom
   let interactionViolations = [];
+  let interactionChecksRun = includeInteractionChecks ? Object.keys(INTERACTION_CHECKS).length : 0;
+  let interactionChecksError = null;
   if (includeInteractionChecks) {
     try {
       interactionViolations = await runInteractionChecks(page);
     } catch (error) {
+      interactionChecksError = error.message;
+      interactionChecksRun = 0;
       console.error('Interaction checks error:', error.message);
     }
   }
 
-  // 4. Merge results
-  const allViolations = [
-    ...axeResults.violations,
-    ...customViolations,
-    ...interactionViolations
-  ];
-
   return {
     ...axeResults,
-    violations: allViolations,
+    violations: [...axeResults.violations, ...customViolations, ...interactionViolations],
     customChecks: customViolations,
+    customChecksError,
     interactionChecks: interactionViolations,
+    interactionChecksError,
     stats: {
       ...axeResults.stats,
-      customChecksRun: 8,
+      axeRulesRun: axeResults.stats.rulesChecked,
+      customChecksRun,
       customViolationsCount: customViolations.length,
-      interactionChecksRun: 18,
+      interactionChecksRun,
       interactionViolationsCount: interactionViolations.length,
-      totalRulesChecked: axeResults.stats.rulesChecked + 8 + 18,
-      totalViolationsCount: allViolations.length
+      opquastRuleIds,
+      totalRulesChecked: opquastRuleIds.length,
+      totalViolationsCount: axeResults.stats.violationsCount + customViolations.length + interactionViolations.length
     }
   };
 }

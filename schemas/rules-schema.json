@@ -4,7 +4,14 @@
   "title": "Opquast Rules Schema",
   "description": "Schema for opquast-v5.json rules file",
   "type": "object",
-  "required": ["version", "name", "total_rules", "categories", "coverage", "rules"],
+  "required": [
+    "version",
+    "name",
+    "total_rules",
+    "categories",
+    "coverage",
+    "rules"
+  ],
   "properties": {
     "version": {
       "type": "string",
@@ -23,22 +30,52 @@
     },
     "categories": {
       "type": "object",
-      "required": ["static", "requires_dom", "requires_interaction", "content_quality"],
+      "required": [
+        "static",
+        "requires_dom",
+        "requires_interaction",
+        "content_quality"
+      ],
       "properties": {
-        "static": { "type": "string" },
-        "requires_dom": { "type": "string" },
-        "requires_interaction": { "type": "string" },
-        "content_quality": { "type": "string" }
+        "static": {
+          "type": "string"
+        },
+        "requires_dom": {
+          "type": "string"
+        },
+        "requires_interaction": {
+          "type": "string"
+        },
+        "content_quality": {
+          "type": "string"
+        }
       }
     },
     "coverage": {
       "type": "object",
-      "required": ["static", "requires_dom", "requires_interaction", "content_quality"],
+      "required": [
+        "static",
+        "requires_dom",
+        "requires_interaction",
+        "content_quality"
+      ],
       "properties": {
-        "static": { "type": "integer", "minimum": 0 },
-        "requires_dom": { "type": "integer", "minimum": 0 },
-        "requires_interaction": { "type": "integer", "minimum": 0 },
-        "content_quality": { "type": "integer", "minimum": 0 }
+        "static": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requires_dom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requires_interaction": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "content_quality": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "rules": {
@@ -46,17 +83,62 @@
       "items": {
         "$ref": "#/$defs/rule"
       }
+    },
+    "synced_from_api": {
+      "type": "string",
+      "description": "Date ISO de la dernière synchronisation title/tags/rubrique/phases/opquast_id avec l'API"
+    },
+    "api_version": {
+      "type": "string",
+      "description": "Version de checklist Opquast synchronisée (qualite-numerique = V5)"
+    },
+    "api_source": {
+      "type": "string",
+      "description": "Endpoint ou instantané utilisé pour la dernière synchronisation"
+    },
+    "synced_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "enriched": {
+      "type": "boolean",
+      "description": "Champs objectives/solution/verification présents"
+    },
+    "enriched_date": {
+      "type": "string",
+      "description": "Date d'enrichissement"
+    },
+    "enrichment_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Champs enrichis"
+    },
+    "enrichment_source": {
+      "type": "string",
+      "description": "Origine des corps de règles : fiches references/regles-v5 ou api"
     }
   },
   "$defs": {
     "rule": {
       "type": "object",
-      "required": ["id", "title", "category", "rubrique"],
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "category",
+        "rubrique",
+        "severity"
+      ],
       "properties": {
         "id": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 245
+          "maximum": 245,
+          "description": "Borne haute liée à la version V5 du référentiel (total_rules). À modifier de front avec profiles-schema.json et audit-report.json ; l'écart est détecté par scripts/tests/test_schemas.py"
         },
         "title": {
           "type": "string",
@@ -64,7 +146,12 @@
         },
         "category": {
           "type": "string",
-          "enum": ["static", "requires_dom", "requires_interaction", "content_quality"]
+          "enum": [
+            "static",
+            "requires_dom",
+            "requires_interaction",
+            "content_quality"
+          ]
         },
         "rubrique": {
           "type": "string",
@@ -89,12 +176,21 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["Accessibilité", "Basics", "Écoconception", "Mobile", "Privacy", "SEO"]
+            "enum": [
+              "Accessibilité",
+              "Basics",
+              "Écoconception",
+              "Mobile",
+              "Privacy",
+              "SEO"
+            ]
           }
         },
         "objectives": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "solution": {
           "type": "string"
@@ -108,8 +204,28 @@
         },
         "severity": {
           "type": "string",
-          "enum": ["critical", "major", "minor"],
+          "enum": [
+            "critical",
+            "major",
+            "minor"
+          ],
           "description": "Rule severity: critical (accessibility, security, privacy), major (SEO, basics, e-commerce), minor (other)"
+        },
+        "phases": {
+          "type": "array",
+          "description": "Phases projet Opquast (metadata « Phases projet » de l'API)",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Conception",
+              "Développement",
+              "Editorial"
+            ]
+          }
+        },
+        "opquast_id": {
+          "type": "integer",
+          "description": "Identifiant interne de la règle dans l'API Opquast (champ id)"
         }
       }
     }

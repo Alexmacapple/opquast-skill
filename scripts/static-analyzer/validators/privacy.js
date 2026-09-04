@@ -6,8 +6,8 @@
 export const PRIVACY_VALIDATORS = {
   // Rule 15: Privacy policy link available
   15: {
-    title: 'Politique de confidentialite accessible',
-    severity: 'major',
+    title: 'La politique de confidentialité et de respect de la vie privée est disponible depuis toutes les pages.',
+    severity: 'critical',
     check: (html) => {
       const privacyPatterns = [
         /href\s*=\s*["'][^"']*\/(privacy|confidentialite|vie-privee|politique-confidentialite|rgpd|gdpr)/i,
@@ -30,8 +30,8 @@ export const PRIVACY_VALIDATORS = {
 
   // Rule 29: Cookie policy explained
   29: {
-    title: 'Politique cookies expliquee',
-    severity: 'major',
+    title: 'L\'objectif des cookies et les limitations inhérentes à leur refus sont expliqués.',
+    severity: 'critical',
     check: (html) => {
       const cookiePatterns = [
         /href\s*=\s*["'][^"']*\/cookies/i,

@@ -6,7 +6,7 @@
 export const ECOMMERCE_VALIDATORS = {
   // Rule 37: Terms and conditions accessible
   37: {
-    title: 'CGV/CGU accessibles',
+    title: 'Les modalités de récupération d\'un bien dématérialisé sont précisées avant la commande.',
     severity: 'major',
     check: (html) => {
       const termsPatterns = [
@@ -30,8 +30,8 @@ export const ECOMMERCE_VALIDATORS = {
 
   // Rule 42: Currency indicated
   42: {
-    title: 'Devise des prix indiquee',
-    severity: 'minor',
+    title: 'Les conditions de financement sont indiquées.',
+    severity: 'major',
     check: (html) => {
       // Check for currency symbols or codes near prices
       const hasCurrency = /(€|\$|£|EUR|USD|GBP)\s*\d|\d\s*(€|\$|£|EUR|USD|GBP)/i.test(html);

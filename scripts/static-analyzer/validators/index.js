@@ -3,7 +3,7 @@
  *
  * Modules:
  * - metadata: 10 rules (3, 103, 104, 106, 108, 109, 130, 221, 222, 225)
- * - accessibility: 2 rules (127, 193)
+ * - accessibility: 2 rules (125, 193)
  * - content: 6 rules (1, 2, 5, 6, 8, 99)
  * - privacy: 2 rules (15, 29)
  * - ecommerce: 2 rules (37, 42)

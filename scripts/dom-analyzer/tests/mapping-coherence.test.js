@@ -1,6 +1,10 @@
 /**
  * Coherence test for axe-core → Opquast ID mappings
  * Ensures all mappings in opquast-mapper.js match rules in opquast-v5.json
+ *
+ * Garde jumelle : scripts/audit-mappings.js applique le MÊME critère (égalité stricte des titres et
+ * des sévérités) en ligne de commande via « npm run audit:mappings ». Les deux doivent rester
+ * alignés : toute évolution du critère se répercute ici et là-bas (audit ShipGuard, r1-z04-053).
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -17,14 +21,25 @@ describe('Mapping Coherence', () => {
   let rulesById;
 
   beforeAll(() => {
+    // Le chemin relatif (trois remontées depuis tests/) est le point fragile : un référentiel absent
+    // ou corrompu doit nommer le chemin attendu, pas planter le hook (r1-z04-054).
     const rulesPath = join(__dirname, '..', '..', '..', 'rules', 'opquast-v5.json');
-    rulesJson = JSON.parse(readFileSync(rulesPath, 'utf-8'));
+    try {
+      rulesJson = JSON.parse(readFileSync(rulesPath, 'utf-8'));
+    } catch (error) {
+      throw new Error(`Référentiel Opquast illisible : ${rulesPath} (${error.message})`);
+    }
+    if (!Array.isArray(rulesJson?.rules)) {
+      throw new Error(`Référentiel Opquast inexploitable : ${rulesPath} ne contient pas de tableau « rules »`);
+    }
     rulesById = Object.fromEntries(rulesJson.rules.map(r => [r.id, r]));
   });
 
   describe('AXE_TO_OPQUAST mappings', () => {
-    it('should have at least 20 mappings', () => {
-      expect(Object.keys(AXE_TO_OPQUAST).length).toBeGreaterThanOrEqual(20);
+    // Comptes exacts et non planchers : un plancher à 20 laissait passer la suppression accidentelle
+    // de 4 mappings, alors que opquast-mapper.test.js exige 24 (contrats contradictoires, r1-z04-052)
+    it('should have exactly 24 mappings', () => {
+      expect(Object.keys(AXE_TO_OPQUAST).length).toBe(24);
     });
 
     it('should reference existing Opquast IDs', () => {
@@ -39,33 +54,27 @@ describe('Mapping Coherence', () => {
       expect(invalidIds).toEqual([]);
     });
 
-    it('should have titles matching Opquast rules', () => {
+    it('should have titles strictly equal to the Opquast reference titles', () => {
+      // Audit ShipGuard 2026-09-03 (r1-z03-006, r1-z04-001) : un seul mot commun laissait passer 13 titres faux
       const mismatches = [];
-
       Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
         const opquastRule = rulesById[mapping.opquastId];
         if (!opquastRule) return;
-
-        // Check title coherence using common significant words
-        const mapperTitle = mapping.title.toLowerCase();
-        const jsonTitle = opquastRule.title.toLowerCase();
-
-        const mapperWords = mapperTitle.split(/\s+/).filter(w => w.length > 3);
-        const jsonWords = jsonTitle.split(/\s+/).filter(w => w.length > 3);
-        const commonWords = mapperWords.filter(w =>
-          jsonWords.some(jw => jw.includes(w) || w.includes(jw))
-        );
-
-        if (commonWords.length === 0) {
-          mismatches.push({
-            axeRule,
-            opquastId: mapping.opquastId,
-            mapperTitle: mapping.title,
-            jsonTitle: opquastRule.title
-          });
+        if (mapping.title !== opquastRule.title) {
+          mismatches.push({ axeRule, opquastId: mapping.opquastId, mapperTitle: mapping.title, jsonTitle: opquastRule.title });
         }
       });
+      expect(mismatches).toEqual([]);
+    });
 
+    it('should have severities equal to the Opquast reference severities', () => {
+      const mismatches = [];
+      Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
+        const opquastRule = rulesById[mapping.opquastId];
+        if (opquastRule && mapping.severity !== opquastRule.severity) {
+          mismatches.push({ axeRule, opquastId: mapping.opquastId, mapper: mapping.severity, json: opquastRule.severity });
+        }
+      });
       expect(mismatches).toEqual([]);
     });
 
@@ -84,8 +93,8 @@ describe('Mapping Coherence', () => {
   });
 
   describe('CUSTOM_CHECKS mappings', () => {
-    it('should have at least 5 custom checks', () => {
-      expect(Object.keys(CUSTOM_CHECKS).length).toBeGreaterThanOrEqual(5);
+    it('should have exactly 8 custom checks', () => {
+      expect(Object.keys(CUSTOM_CHECKS).length).toBe(8);
     });
 
     it('should reference existing Opquast IDs', () => {
@@ -99,6 +108,18 @@ describe('Mapping Coherence', () => {
       });
 
       expect(invalidIds).toEqual([]);
+    });
+
+    it('should have titles and severities equal to the Opquast reference', () => {
+      const mismatches = [];
+      Object.entries(CUSTOM_CHECKS).forEach(([opquastId, check]) => {
+        const rule = rulesById[Number(opquastId)];
+        if (!rule) return;
+        if (check.title !== rule.title || check.severity !== rule.severity) {
+          mismatches.push({ opquastId, title: check.title, jsonTitle: rule.title, severity: check.severity, jsonSeverity: rule.severity });
+        }
+      });
+      expect(mismatches).toEqual([]);
     });
 
     it('should have valid check types', () => {
@@ -116,13 +137,13 @@ describe('Mapping Coherence', () => {
   });
 
   describe('Coverage statistics', () => {
-    it('should cover at least 20 unique Opquast rules', () => {
+    it('should cover exactly 23 unique Opquast rules', () => {
       const axeRules = Object.values(AXE_TO_OPQUAST).map(m => m.opquastId);
       const customRules = Object.keys(CUSTOM_CHECKS).map(Number);
       const uniqueRules = new Set([...axeRules, ...customRules]);
 
       // Note: Some axe rules map to the same Opquast ID (e.g., label, button-name, select-name all → 69)
-      expect(uniqueRules.size).toBeGreaterThanOrEqual(20);
+      expect(uniqueRules.size).toBe(23);
     });
   });
 });

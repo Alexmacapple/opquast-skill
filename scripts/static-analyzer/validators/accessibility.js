@@ -1,13 +1,13 @@
 /**
  * Accessibility Validators
- * Rules: 127, 193
+ * Rules: 125, 193
  */
 
 export const ACCESSIBILITY_VALIDATORS = {
-  // Rule 127: No autoplay audio/video
-  127: {
-    title: 'Les sons sont declenches par l\'utilisateur',
-    severity: 'major',
+  // Rule 125: sons déclenchés par l'utilisateur (autoplay) ; 127 concerne les animations (r1-z04-028)
+  125: {
+    title: 'Les sons sont déclenchés par l\'utilisateur.',
+    severity: 'critical',
     check: (html) => {
       // Check for autoplay on audio/video elements
       const hasAutoplay = /<(audio|video)[^>]+autoplay/i.test(html);
@@ -33,7 +33,7 @@ export const ACCESSIBILITY_VALIDATORS = {
 
   // Rule 193: Viewport meta doesn't block zoom
   193: {
-    title: 'Les fonctionnalites de zoom ne sont pas bloquees',
+    title: 'Les fonctionnalités de zoom ne sont pas bloquées.',
     severity: 'critical',
     check: (html) => {
       const viewportMatch = html.match(/<meta[^>]+name\s*=\s*["']viewport["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
@@ -45,8 +45,12 @@ export const ACCESSIBILITY_VALIDATORS = {
       }
 
       const content = viewportMatch[1].toLowerCase();
+      // Comparaison numérique plutôt que motif littéral : 1, 1.0, 1.00, « 1.0; » et toute valeur
+      // inférieure à 1 bloquent le zoom, quel que soit le séparateur qui suit (r1-z04-038).
+      const maxScaleMatch = content.match(/maximum-scale\s*=\s*([0-9]*\.?[0-9]+)/i);
+      const maxScale = maxScaleMatch ? Number.parseFloat(maxScaleMatch[1]) : null;
       const blocksZoom = /user-scalable\s*=\s*(no|0|false)/i.test(content) ||
-                        /maximum-scale\s*=\s*1(\.0)?(\s|,|$)/i.test(content);
+                        (maxScale !== null && !Number.isNaN(maxScale) && maxScale <= 1);
 
       if (blocksZoom) {
         return {

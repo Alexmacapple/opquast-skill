@@ -20,36 +20,36 @@ import { CONFIDENCE_LEVELS } from '../utils/opquast-mapper.js';
 // Interaction check definitions
 const INTERACTION_CHECKS = {
   // Form validation
-  79: { title: 'Champs erronés conservent données saisies', severity: 'critical', type: 'form' },
-  80: { title: 'Raisons rejet données indiquées', severity: 'critical', type: 'form' },
-  85: { title: 'Soumission suivie message confirmation', severity: 'critical', type: 'form' },
-  92: { title: 'Copier coller possible dans formulaires', severity: 'critical', type: 'form' },
+  79: { title: 'En cas de rejet des données saisies dans un formulaire, les champs contenant les données rejetées sont indiqués à l\'utilisateur.', severity: 'critical', type: 'form' },
+  80: { title: 'En cas de rejet des données saisies dans un formulaire, les raisons du rejet sont indiquées à l\'utilisateur.', severity: 'critical', type: 'form' },
+  85: { title: 'La soumission d\'un formulaire est suivie d\'un message indiquant la réussite ou non de l\'action souhaitée.', severity: 'critical', type: 'form' },
+  92: { title: 'Le copier coller est possible dans les champs de formulaire.', severity: 'critical', type: 'form' },
 
   // Link styling
-  140: { title: 'Liens différenciés du reste du contenu', severity: 'critical', type: 'link' },
-  141: { title: 'Liens visités différenciés', severity: 'minor', type: 'link' },
-  142: { title: 'Liens internes et externes différenciés', severity: 'critical', type: 'link' },
+  140: { title: 'Les liens sont visuellement différenciés du reste du contenu.', severity: 'critical', type: 'link' },
+  141: { title: 'Les liens visités et non visités sont visuellement différenciés.', severity: 'minor', type: 'link' },
+  142: { title: 'Les liens internes et externes sont différenciés.', severity: 'critical', type: 'link' },
 
   // Navigation
-  157: { title: 'Items actifs de menu signalés', severity: 'critical', type: 'nav' },
-  158: { title: 'Blocs navigation même nature affichés mêmes endroits', severity: 'critical', type: 'nav' },
-  154: { title: 'Navigation ne provoque pas popups', severity: 'critical', type: 'nav' },
+  157: { title: 'Les items actifs de menu sont signalés.', severity: 'critical', type: 'nav' },
+  158: { title: 'Les blocs de navigation de même nature sont affichés aux mêmes emplacements sur toutes les pages.', severity: 'critical', type: 'nav' },
+  154: { title: 'La navigation ne provoque pas l\'ouverture de popups.', severity: 'critical', type: 'nav' },
 
   // Modal
-  160: { title: 'Mécanismes fermeture visuellement repérables', severity: 'critical', type: 'modal' },
-  161: { title: 'Mécanismes fermeture immédiatement utilisables', severity: 'critical', type: 'modal' },
-  162: { title: 'Fenêtres modales ont bouton fermeture', severity: 'critical', type: 'modal' },
+  160: { title: 'Les mécanismes de fermeture de fenêtres sont visuellement rattachés à leur contenu.', severity: 'critical', type: 'modal' },
+  161: { title: 'Les mécanismes de fermetures de fenêtres sont immédiatement disponibles.', severity: 'critical', type: 'modal' },
+  162: { title: 'Les nouvelles fenêtres dimensionnées et les fenêtres modales sont dotées d\'un bouton de fermeture explicite.', severity: 'critical', type: 'modal' },
 
   // Animation
-  126: { title: 'Animations peuvent être mises en pause', severity: 'critical', type: 'animation' },
-  128: { title: 'Contenu animé peut être interrompu', severity: 'minor', type: 'animation' },
+  126: { title: 'Les animations, sons et clignotements peuvent être mis en pause.', severity: 'critical', type: 'animation' },
+  128: { title: 'L\'indicatif international est disponible pour tous les numéros de téléphone.', severity: 'minor', type: 'animation' },
 
   // Labels
-  77: { title: 'Labels visuellement rattachés aux champs', severity: 'critical', type: 'label' },
-  78: { title: 'Infos contextuelles rattachées aux champs', severity: 'critical', type: 'label' },
+  77: { title: 'Chaque étiquette de formulaire est visuellement rattachée au champ qu\'elle décrit.', severity: 'critical', type: 'label' },
+  78: { title: 'Les informations contextuelles se rapportant à un champ de formulaire lui sont visuellement rattachées.', severity: 'critical', type: 'label' },
 
   // Hover
-  91: { title: 'Actions hover aussi déclenchables au pointeur', severity: 'minor', type: 'hover' }
+  91: { title: 'La navigation dans un processus complexe ne provoque pas la perte des données précédemment soumises.', severity: 'minor', type: 'hover' }
 };
 
 /**

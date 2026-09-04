@@ -4,7 +4,11 @@
   "title": "Site Profiles Schema",
   "description": "Schema for site-profiles.json",
   "type": "object",
-  "required": ["version", "profiles"],
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "profiles"
+  ],
   "properties": {
     "version": {
       "type": "string"
@@ -17,12 +21,30 @@
       "additionalProperties": {
         "$ref": "#/$defs/profile"
       }
+    },
+    "detection_priority": {
+      "type": "array",
+      "description": "Ordre d'essai des profils lors de la détection ; chaque valeur est une clé de profiles",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_profile": {
+      "type": "string",
+      "description": "Profil appliqué quand aucun profil n'est détecté (clé de profiles)"
     }
   },
   "$defs": {
     "profile": {
       "type": "object",
-      "required": ["name", "detection", "regles_critiques", "regles_exclues", "pages_a_analyser"],
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "detection",
+        "regles_critiques",
+        "regles_exclues",
+        "pages_a_analyser"
+      ],
       "properties": {
         "name": {
           "type": "string"
@@ -32,35 +54,47 @@
         },
         "detection": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "keywords": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "elements": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "urls": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "meta": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             }
           }
         },
         "rubriques_prioritaires": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "regles_critiques": {
           "type": "array",
           "items": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 245
+            "maximum": 245,
+            "description": "Borne haute liée à la version V5 du référentiel, partagée avec rules-schema.json et audit-report.json"
           },
           "description": "Rule IDs that are critical for this profile"
         },
@@ -69,13 +103,16 @@
           "items": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 245
+            "maximum": 245,
+            "description": "Borne haute liée à la version V5 du référentiel, partagée avec rules-schema.json et audit-report.json"
           },
           "description": "Rule IDs not applicable for this profile"
         },
         "pages_a_analyser": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

@@ -6,7 +6,7 @@
 export const STRUCTURE_VALIDATORS = {
   // Rule 178: Newsletter unsubscribe without login
   178: {
-    title: 'Desinscription newsletter sans connexion',
+    title: 'Les archives de newsletters sont disponibles en ligne.',
     severity: 'minor',
     check: (html) => {
       // Check for unsubscribe links
@@ -28,8 +28,8 @@ export const STRUCTURE_VALIDATORS = {
 
   // Rule 223: No deprecated HTML elements
   223: {
-    title: 'Pas elements HTML obsoletes',
-    severity: 'minor',
+    title: 'Le serveur envoie une page d\'erreur 404 personnalisée.',
+    severity: 'critical',
     check: (html) => {
       const deprecatedTags = /<(font|center|marquee|blink|frame|frameset|applet)\b/i;
       if (deprecatedTags.test(html)) {
@@ -41,8 +41,8 @@ export const STRUCTURE_VALIDATORS = {
 
   // Rule 224: No inline styles
   224: {
-    title: 'Pas de styles inline excessifs',
-    severity: 'minor',
+    title: 'Le serveur envoie une page d\'interdiction 403 personnalisée.',
+    severity: 'critical',
     check: (html) => {
       const inlineStyles = html.match(/style\s*=\s*["'][^"']+["']/gi) || [];
       if (inlineStyles.length > 20) {

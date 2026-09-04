@@ -6,8 +6,8 @@
 export const CONTACT_VALIDATORS = {
   // Rule 22: Login with standard credentials
   22: {
-    title: 'Connexion possible avec identifiants standards',
-    severity: 'minor',
+    title: 'La connexion à tous les services proposés est possible avec les mêmes identifiants.',
+    severity: 'critical',
     check: (html) => {
       // Check for login form with email/password fields
       const hasLoginForm = /type\s*=\s*["']password["']/i.test(html);
@@ -24,8 +24,8 @@ export const CONTACT_VALIDATORS = {
 
   // Rule 107: Multiple contact methods
   107: {
-    title: 'Au moins deux moyens de contact proposes',
-    severity: 'major',
+    title: 'Au moins deux moyens de contact sont proposés.',
+    severity: 'critical',
     check: (html) => {
       let contactMethods = 0;
 

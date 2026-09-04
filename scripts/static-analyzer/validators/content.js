@@ -6,8 +6,8 @@
 export const CONTENT_VALIDATORS = {
   // Rule 1: RSS/Atom feed available
   1: {
-    title: 'Fil RSS/Atom disponible pour les nouveaux contenus',
-    severity: 'minor',
+    title: 'Il est possible de connaître les nouveaux contenus ou services.',
+    severity: 'critical',
     check: (html) => {
       const hasFeed = /<link[^>]+type\s*=\s*["'](application\/(rss|atom)\+xml|text\/xml)["']/i.test(html) ||
                      /<link[^>]+rel\s*=\s*["']alternate["'][^>]+type\s*=\s*["']application\/(rss|atom)\+xml["']/i.test(html);
@@ -26,17 +26,20 @@ export const CONTENT_VALIDATORS = {
 
   // Rule 2: Copyright/license info available
   2: {
-    title: 'Informations droits de copie disponibles',
+    title: 'Les informations relatives aux droits de copie et de réutilisation sont disponibles depuis toutes les pages.',
     severity: 'minor',
     check: (html) => {
-      const hasCopyright = /(&copy;|©|copyright|droits\s+d['e]\s*auteur|licence|license|creative\s+commons)/i.test(html);
-      if (hasCopyright) {
-        return { valid: true, confidence: 0.8 };
-      }
-      // Check footer area specifically
+      // Le mot « licence » seul ne vaut pas mention de droits (« licence professionnelle ») : il doit
+      // être qualifié (r1-z04-033). Une année isolée dans le pied de page non plus (r1-z04-034).
+      const rightsPattern = /(&copy;|©|copyright|droits\s+d['e]\s*auteur|droits\s+de\s+(copie|reproduction|r[ée]utilisation)|tous\s+droits\s+r[ée]serv[ée]s|creative\s+commons|sous\s+licence|licen[cs]e\s+(creative\s+commons|ouverte|libre|etalab|publique|mit|gpl|apache|bsd)|licen[cs]ed\s+under)/i;
+
+      // Une mention située dans le pied de page est le signal le plus fiable
       const footerMatch = html.match(/<footer[^>]*>([\s\S]*?)<\/footer>/i);
-      if (footerMatch && /(&copy;|©|\d{4})/i.test(footerMatch[1])) {
+      if (footerMatch && rightsPattern.test(footerMatch[1])) {
         return { valid: true, confidence: 0.9 };
+      }
+      if (rightsPattern.test(html)) {
+        return { valid: true, confidence: 0.8 };
       }
       return {
         valid: false,
@@ -48,8 +51,8 @@ export const CONTENT_VALIDATORS = {
 
   // Rule 5: Abbreviations have expansions
   5: {
-    title: 'Les abreviations ont leur signification',
-    severity: 'minor',
+    title: 'La première occurrence d\'une abréviation ou d\'un acronyme dans le corps de chaque page donne accès à sa signification.',
+    severity: 'critical',
     check: (html) => {
       // Check for abbr tags with title
       const abbrWithTitle = /<abbr[^>]+title\s*=\s*["'][^"']+["']/i.test(html);
@@ -70,7 +73,7 @@ export const CONTENT_VALIDATORS = {
 
   // Rule 6: Publication date indicated
   6: {
-    title: 'Date de publication indiquee',
+    title: 'La date de publication des contenus qui le nécessitent est indiquée.',
     severity: 'minor',
     check: (html) => {
       // Check for structured data dates
@@ -93,8 +96,8 @@ export const CONTENT_VALIDATORS = {
 
   // Rule 8: Advertising content identified
   8: {
-    title: 'Contenus publicitaires identifies',
-    severity: 'minor',
+    title: 'Les contenus publicitaires ou sponsorisés sont identifiés comme tels.',
+    severity: 'major',
     check: (html) => {
       // Check for ad containers with proper disclosure
       const hasAdDisclosure = /aria-label\s*=\s*["'][^"']*(publicit|sponsor|annonce|ad\b)/i.test(html) ||
@@ -103,7 +106,15 @@ export const CONTENT_VALIDATORS = {
       // Check for common ad scripts without disclosure
       const hasAdScripts = /(googletag|doubleclick|adsense|adsbygoogle)/i.test(html);
 
-      if (hasAdScripts && !hasAdDisclosure) {
+      if (hasAdScripts) {
+        if (hasAdDisclosure) {
+          // Publicité présente ET identifiée : conformité, pas « non applicable » (r1-z04-035)
+          return {
+            valid: true,
+            confidence: 0.6,
+            details: 'Scripts publicitaires detectes avec identification'
+          };
+        }
         return {
           valid: false,
           confidence: 0.6,
@@ -117,8 +128,8 @@ export const CONTENT_VALIDATORS = {
 
   // Rule 99: Homepage describes site content
   99: {
-    title: 'Page accueil decrit le contenu du site',
-    severity: 'major',
+    title: 'La page d\'accueil expose la nature des contenus et services proposés.',
+    severity: 'critical',
     check: (html, url) => {
       // Only check homepage
       if (url && !url.match(/^https?:\/\/[^\/]+\/?$/)) return null;

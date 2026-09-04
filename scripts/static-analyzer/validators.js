@@ -36,12 +36,21 @@ export const STATIC_VALIDATORS = ALL_VALIDATORS;
  * Run all static validators on HTML content
  *
  * @param {string} html - HTML source code
- * @param {string} url - Page URL (for context)
+ * @param {string} url - URL de la page, transmise telle quelle en second argument de chaque
+ *   `check(html, url)`. Aucun validateur ne l'exploite aujourd'hui, mais c'est le point
+ *   d'extension prévu pour les règles qui dépendent du contexte d'URL (règles 2 et 15,
+ *   « disponible depuis toutes les pages ») ; la propagation est verrouillée par un test
+ *   (r1-z04-036).
  * @param {Object} options - Run options
  * @param {string[]} options.categories - Filter by categories (optional)
  * @returns {Object} Validation results
+ * @throws {TypeError} si html n'est pas une chaîne (r1-z04-030) : une entrée non textuelle
+ *   produirait sinon des verdicts arbitraires sans qu'aucune erreur ne remonte à l'appelant.
  */
 export function runStaticValidators(html, url = '', options = {}) {
+  if (typeof html !== 'string') {
+    throw new TypeError(`runStaticValidators attend une chaîne HTML, reçu ${html === null ? 'null' : typeof html}`);
+  }
   const { categories = null } = options;
 
   // Select validators based on categories filter
@@ -54,6 +63,7 @@ export function runStaticValidators(html, url = '', options = {}) {
     passed: [],
     failed: [],
     skipped: [],
+    errors: [],
     timestamp: new Date().toISOString()
   };
 
@@ -93,11 +103,12 @@ export function runStaticValidators(html, url = '', options = {}) {
         });
       }
     } catch (error) {
-      results.skipped.push({
+      // Une exception de validateur est une erreur, pas un « non applicable » (r1-z04-031)
+      results.errors.push({
         opquastId: id,
         title: validator.title,
         category: getValidatorCategory(id),
-        reason: `Erreur: ${error.message}`
+        error: error.message
       });
     }
   }

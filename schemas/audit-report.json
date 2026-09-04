@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "opquast-audit-report",
+  "$id": "https://opquast-skill/schemas/audit-report.json",
   "title": "Rapport d'Audit Opquast",
   "description": "Schéma JSON pour les rapports d'audit Opquast V5",
   "type": "object",
@@ -71,7 +71,7 @@
         },
         "non_applicables": {
           "type": "integer",
-          "description": "Règles non applicables au contexte"
+          "description": "Décompte des règles non applicables au contexte. Aucune liste correspondante dans results : SKILL.md interdit d'afficher les règles non applicables. La somme conformes + non_conformes + non_applicables + non_verifiables doit valoir total_rules (invariant non exprimable en JSON Schema)"
         },
         "non_verifiables": {
           "type": "integer",
@@ -136,9 +136,10 @@
           },
           "impact": {
             "type": "array",
+            "description": "Union des tags du référentiel (Accessibilité, Basics, Écoconception, Mobile, Privacy, SEO) et des deux axes éditoriaux du rapport (Sécurité, UX). Toute valeur de tags de rules-schema.json a ainsi une destination : voir scripts/tests/test_schemas.py",
             "items": {
               "type": "string",
-              "enum": ["Accessibilité", "SEO", "Sécurité", "Privacy", "Écoconception", "UX"]
+              "enum": ["Accessibilité", "Basics", "Écoconception", "Mobile", "Privacy", "SEO", "Sécurité", "UX"]
             }
           }
         }
@@ -149,13 +150,13 @@
   "$defs": {
     "non_conformite": {
       "type": "object",
-      "required": ["rule_id", "title", "rubrique"],
+      "required": ["rule_id", "title", "rubrique", "reference_url"],
       "properties": {
         "rule_id": {
           "type": "integer",
           "minimum": 1,
           "maximum": 245,
-          "description": "Numéro de la règle"
+          "description": "Numéro de la règle. Borne haute liée à la version V5 du référentiel, partagée avec rules-schema.json et profiles-schema.json"
         },
         "title": {
           "type": "string",

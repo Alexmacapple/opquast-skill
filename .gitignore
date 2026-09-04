@@ -23,10 +23,13 @@ Thumbs.db
 # Audit outputs (générés)
 audits/
 
-# Node (si phase 3 implémentée)
-node_modules/
-package-lock.json
+# Rapports de couverture (générés par vitest run --coverage)
+coverage/
 
+# Node
+node_modules/
+# package-lock.json est volontairement versionné : installation reproductible
+# (npm ci) et protection contre une version transitive compromise.
 # --- Ajouts du 2026-08-07 : eviter la publication accidentelle ---
 
 # Sessions d'authentification enregistrees (Playwright storageState).

@@ -1,12 +1,33 @@
 {
   "name": "opquast-static-analyzer",
   "version": "1.0.0",
+  "private": true,
+  "description": "Validateurs statiques Opquast (HTML sans navigateur) ; consomme dom-analyzer/utils/opquast-mapper.js par chemin relatif, les deux paquets voyageant ensemble dans le skill",
+  "main": "validators.js",
+  "exports": {
+    ".": "./validators.js",
+    "./validators.js": "./validators.js"
+  },
   "type": "module",
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run tests",
+    "test:watch": "vitest tests",
+    "test:coverage": "vitest run tests --coverage"
   },
+  "keywords": [
+    "opquast",
+    "quality",
+    "html",
+    "static-analysis",
+    "audit"
+  ],
+  "author": "",
+  "license": "MIT",
   "devDependencies": {
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
+  },
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
   }
 }

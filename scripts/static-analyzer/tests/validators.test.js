@@ -4,7 +4,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { STATIC_VALIDATORS, runStaticValidators, getValidatorInfo } from './validators.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const rulesById = Object.fromEntries(JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'rules', 'opquast-v5.json'), 'utf-8')).rules.map(r => [r.id, r]));
+import { STATIC_VALIDATORS, runStaticValidators, getValidatorInfo } from '../validators.js';
 
 describe('Static Validators', () => {
   describe('Rule 3: Meta description', () => {
@@ -106,28 +110,28 @@ describe('Static Validators', () => {
     });
   });
 
-  describe('Rule 127: No autoplay', () => {
+  describe('Rule 125: No autoplay', () => {
     it('should pass without autoplay', () => {
       const html = '<html><body><video src="test.mp4" controls></video></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(true);
     });
 
     it('should fail with autoplay on video', () => {
       const html = '<html><body><video src="test.mp4" autoplay></video></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(false);
     });
 
     it('should fail with autoplay on audio', () => {
       const html = '<html><body><audio src="test.mp3" autoplay></audio></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(false);
     });
 
     it('should detect iframe autoplay', () => {
       const html = '<html><body><iframe src="https://youtube.com/embed/abc?autoplay=1"></iframe></body></html>';
-      const result = STATIC_VALIDATORS[127].check(html);
+      const result = STATIC_VALIDATORS[125].check(html);
       expect(result.valid).toBe(false);
     });
   });
@@ -640,5 +644,111 @@ describe('Phase 2 Validators', () => {
       const result = STATIC_VALIDATORS[225].check(html);
       expect(result).toBeNull();
     });
+  });
+});
+
+describe('Reference alignment (audit ShipGuard 2026-09-03, r1-z04-028)', () => {
+  it('every validator carries the reference title and severity of its rule', () => {
+    const mismatches = Object.entries(STATIC_VALIDATORS)
+      .filter(([id, v]) => !rulesById[id] || v.title !== rulesById[id].title || v.severity !== rulesById[id].severity)
+      .map(([id, v]) => ({ id, title: v.title, severity: v.severity }));
+    expect(mismatches).toEqual([]);
+  });
+});
+
+describe('Audit ShipGuard 2026-09-03 : lang strict et erreurs de validateur', () => {
+  it('rejects xml:lang and data-lang as substitutes for lang (r1-z04-032)', () => {
+    expect(STATIC_VALIDATORS[130].check('<html xml:lang="fr"><body></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[130].check('<html data-lang="fr"><body></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[130].check('<html lang="fr"><body></body></html>').valid).toBe(true);
+    expect(STATIC_VALIDATORS[130].check('<html class="x" lang="fr-FR"><body></body></html>').valid).toBe(true);
+  });
+
+  it('reports a throwing validator under errors, not skipped (r1-z04-031)', () => {
+    STATIC_VALIDATORS[999] = { title: 'faux', severity: 'minor', check: () => { throw new Error('boum'); } };
+    try {
+      const r = runStaticValidators('<html lang="fr"></html>');
+      expect(r.errors.map(e => e.opquastId)).toContain(999);
+      expect(r.skipped.map(e => e.opquastId)).not.toContain(999);
+    } finally {
+      delete STATIC_VALIDATORS[999];
+    }
+  });
+});
+
+describe('Audit ShipGuard 2026-09-04 : faux positifs et angles morts des validateurs', () => {
+  it('n\'accepte pas le mot « licence » hors contexte de droits (r1-z04-033)', () => {
+    expect(STATIC_VALIDATORS[2].check('<html><body><p>Licence professionnelle STAPS</p></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[2].check('<html><body><p>Voir la licence STAPS</p></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[2].check('<html><body><p>Contenus publiés sous licence Creative Commons</p></body></html>').valid).toBe(true);
+    expect(STATIC_VALIDATORS[2].check('<html><body><p>Licence ouverte Etalab</p></body></html>').valid).toBe(true);
+  });
+
+  it('n\'accepte pas un nombre à quatre chiffres du pied de page comme copyright (r1-z04-034)', () => {
+    expect(STATIC_VALIDATORS[2].check('<html><body><footer>2026 places disponibles</footer></body></html>').valid).toBe(false);
+    expect(STATIC_VALIDATORS[2].check('<html><body><footer>Standard : 01 44 55 66 77 - 75014 Paris</footer></body></html>').valid).toBe(false);
+    const enPied = STATIC_VALIDATORS[2].check('<html><body><footer>© 2026 Société</footer></body></html>');
+    expect(enPied.valid).toBe(true);
+    expect(enPied.confidence).toBe(0.9);
+    const horsPied = STATIC_VALIDATORS[2].check('<html><body><p>Copyright 2026 Société</p></body></html>');
+    expect(horsPied.valid).toBe(true);
+    expect(horsPied.confidence).toBe(0.8);
+  });
+
+  it('classe en conforme une publicité correctement identifiée (r1-z04-035)', () => {
+    const html = '<html><body><div aria-label="Publicité"><script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script></div></body></html>';
+    const result = STATIC_VALIDATORS[8].check(html);
+    expect(result).not.toBeNull();
+    expect(result.valid).toBe(true);
+  });
+
+  it('détecte les variantes de maximum-scale bloquant le zoom (r1-z04-038)', () => {
+    const viewport = (content) => `<html><head><meta name="viewport" content="${content}"></head></html>`;
+    expect(STATIC_VALIDATORS[193].check(viewport('width=device-width, maximum-scale=1.00')).valid).toBe(false);
+    expect(STATIC_VALIDATORS[193].check(viewport('width=device-width, maximum-scale=1.0;')).valid).toBe(false);
+    expect(STATIC_VALIDATORS[193].check(viewport('width=device-width, maximum-scale=0.5')).valid).toBe(false);
+    expect(STATIC_VALIDATORS[193].check(viewport('width=device-width, maximum-scale=1')).valid).toBe(false);
+    expect(STATIC_VALIDATORS[193].check(viewport('width=device-width, maximum-scale=5.0')).valid).toBe(true);
+  });
+
+  it('extrait le titre du document et non celui d\'un SVG, balisage interne compris (r1-z04-039)', () => {
+    const svgAvant = '<html><body><svg><title>Ico</title></svg></body><head><title>Accueil du site de démonstration</title></head></html>';
+    expect(STATIC_VALIDATORS[103].check(svgAvant).valid).toBe(true);
+    const balisage = '<html><head><title>Accueil <span>du site de démonstration</span></title></head></html>';
+    const result = STATIC_VALIDATORS[103].check(balisage);
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejette une entrée html qui n\'est pas une chaîne (r1-z04-030)', () => {
+    expect(() => runStaticValidators(undefined)).toThrow(TypeError);
+    expect(() => runStaticValidators(null)).toThrow(TypeError);
+    expect(() => runStaticValidators({ body: '<html></html>' })).toThrow(TypeError);
+  });
+
+  it('propage l\'URL de contexte à chaque validateur (r1-z04-036)', () => {
+    const recues = [];
+    STATIC_VALIDATORS[998] = {
+      title: 'sonde',
+      severity: 'minor',
+      check: (html, url) => { recues.push(url); return null; }
+    };
+    try {
+      runStaticValidators('<html lang="fr"></html>', 'https://exemple.test/page');
+    } finally {
+      delete STATIC_VALIDATORS[998];
+    }
+    expect(recues).toEqual(['https://exemple.test/page']);
+  });
+
+  it('renseigne la structure des règles ignorées et l\'horodatage (r1-z04-041)', () => {
+    const results = runStaticValidators('<html lang="fr"><head><title>Un titre de page valide</title></head><body></body></html>');
+    expect(Array.isArray(results.skipped)).toBe(true);
+    const ignoree = results.skipped.find(r => r.opquastId === 1);
+    expect(ignoree).toBeDefined();
+    expect(ignoree.title).toBe(STATIC_VALIDATORS[1].title);
+    expect(typeof ignoree.reason).toBe('string');
+    expect(ignoree.reason.length).toBeGreaterThan(0);
+    expect(Number.isNaN(Date.parse(results.timestamp))).toBe(false);
+    expect(results.errors).toEqual([]);
   });
 });
