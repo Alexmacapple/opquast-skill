@@ -41,21 +41,30 @@
       "last_completed_at": "2026-01-15T20:40:28"
     },
     "gemini": {
-      "status": "running",
-      "total_calls": 0,
-      "successful_calls": 0,
+      "status": "completed",
+      "total_calls": 1,
+      "successful_calls": 1,
       "failed_calls": 0,
-      "total_latency_ms": 0,
-      "avg_latency_ms": 0,
-      "stages_completed": [],
+      "total_latency_ms": 99726,
+      "avg_latency_ms": 99726,
+      "stages_completed": [
+        "challenge_2"
+      ],
       "last_confidence": null,
       "last_error": null,
-      "stage_history": [],
+      "stage_history": [
+        {
+          "stage": "challenge_2",
+          "started_at": "2026-01-15T20:40:33",
+          "completed_at": "2026-01-15T20:41:07",
+          "success": true,
+          "latency_ms": 99726,
+          "response_preview": "```json\n{\n  \"challenges\": [\n    \"Response A cites '33 rules' for Phase 3 coverage expansion, failing to flag the significant inconsistency between SKILL.md (33 rules) and the detailed `docs/phase-3-an",
+          "attempt": 1
+        }
+      ],
       "current_stage": "challenge_2",
-      "_stage_started_at": "2026-01-15T20:40:33",
-      "elapsed_s": 90.1,
-      "timeout_s": 420,
-      "call_progress_pct": 21
+      "last_completed_at": "2026-01-15T20:41:07"
     }
   },
   "call_log": [
@@ -123,7 +132,27 @@
       "details": {
         "elapsed_s": 90.09292912483215
       }
+    },
+    {
+      "timestamp": "2026-01-15T20:41:03",
+      "event": "model_running",
+      "model": "gemini",
+      "stage": "challenge_2",
+      "details": {
+        "elapsed_s": 95.09533214569092
+      }
+    },
+    {
+      "timestamp": "2026-01-15T20:41:07",
+      "event": "model_completed",
+      "model": "gemini",
+      "stage": "challenge_2",
+      "attempt": 1,
+      "details": {
+        "latency_ms": 99726,
+        "success": true
+      }
     }
   ],
-  "updated_at": "2026-01-15T20:40:58"
+  "updated_at": "2026-01-15T20:41:07"
 }

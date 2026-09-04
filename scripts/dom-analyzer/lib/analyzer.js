@@ -22,6 +22,7 @@ import { getSupportedOpquastRules, getAxeRuleIds } from '../utils/opquast-mapper
  * @param {boolean} options.includeCustomChecks - Run custom Playwright checks (default: true)
  * @param {number[]} options.rules - Specific Opquast rule IDs to check
  * @param {boolean} options.keepBrowserOpen - Don't close browser after analysis (for batch)
+ * @param {Object} options.storageState - Playwright storage state for authentication
  * @returns {Promise<Object>} Analysis results
  */
 export async function analyze(url, options = {}) {
@@ -29,7 +30,8 @@ export async function analyze(url, options = {}) {
     includeWarnings = false,
     includeCustomChecks = true,
     rules = null,
-    keepBrowserOpen = false
+    keepBrowserOpen = false,
+    storageState = null
   } = options;
 
   if (!url || !url.startsWith('http')) {
@@ -40,9 +42,10 @@ export async function analyze(url, options = {}) {
   let page = null;
 
   try {
-    // Launch browser and create context
+    // Launch browser and create context (with optional auth state)
     await launchBrowser();
-    context = await createContext();
+    const contextOptions = storageState ? { storageState } : {};
+    context = await createContext(contextOptions);
     page = await context.newPage();
 
     // Navigate to URL

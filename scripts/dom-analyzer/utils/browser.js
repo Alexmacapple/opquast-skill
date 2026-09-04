@@ -38,6 +38,7 @@ export async function launchBrowser(options = {}) {
 /**
  * Create a new browser context with sensible defaults
  * @param {Object} options - Context options
+ * @param {Object} options.storageState - Playwright storage state (cookies, localStorage)
  * @returns {Promise<BrowserContext>}
  */
 export async function createContext(options = {}) {
@@ -49,10 +50,13 @@ export async function createContext(options = {}) {
     ignoreHTTPSErrors: true
   };
 
-  contextInstance = await browser.newContext({
+  // Merge options, allowing storageState for authentication
+  const contextOptions = {
     ...defaultOptions,
     ...options
-  });
+  };
+
+  contextInstance = await browser.newContext(contextOptions);
 
   return contextInstance;
 }

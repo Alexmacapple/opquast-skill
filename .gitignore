@@ -26,3 +26,21 @@ audits/
 # Node (si phase 3 implémentée)
 node_modules/
 package-lock.json
+
+# --- Ajouts du 2026-08-07 : eviter la publication accidentelle ---
+
+# Sessions d'authentification enregistrees (Playwright storageState).
+# Depot public : ne jamais versionner de cookies ni d'URL de service interne.
+.opquast-auth-*.json
+
+# Traces de deliberations, regenerees a chaque session du skill council
+deliberations/
+scripts/**/deliberations/
+
+# Rapports de couverture produits par les tests
+coverage/
+scripts/**/coverage/
+
+# Contexte de session local, propre a la machine
+.claude/session-context.md
+.claude/*.local.md

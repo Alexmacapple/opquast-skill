@@ -19,7 +19,8 @@
 import { analyze, getAnalyzerInfo } from './dom-analyzer/lib/analyzer.js';
 import { runStaticValidators, getValidatorInfo } from './static-analyzer/validators.js';
 import { detectSPA, getSPADetectorInfo } from './static-analyzer/spa-detector.js';
-import { readFile } from 'fs/promises';
+import { exportResults, getExporterInfo, SUPPORTED_FORMATS } from './exporters/index.js';
+import { readFile, writeFile } from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -53,7 +54,8 @@ export async function runUnifiedAnalysis(url, options = {}) {
     includeStatic = true,
     theme = null,
     rubrique = null,
-    spaDetection = true
+    spaDetection = true,
+    storageState = null
   } = options;
 
   const results = {
@@ -108,7 +110,8 @@ export async function runUnifiedAnalysis(url, options = {}) {
     console.error(`[Bridge] Running DOM analysis on ${url}...`);
     const domResults = await analyze(url, {
       includeWarnings: false,
-      includeCustomChecks: true
+      includeCustomChecks: true,
+      storageState
     });
 
     results.analysis.dom = domResults;
@@ -312,17 +315,28 @@ Usage:
   node scripts/bridge.js <url> [options]
 
 Options:
-  --json              Output as JSON
+  --format <fmt>      Output format: ${SUPPORTED_FORMATS.join(', ')} (default: text)
+  --output <file>     Write output to file (stdout if omitted)
+  --json              Shortcut for --format json
   --dom-only          Only run DOM analysis
   --no-spa-detection  Disable SPA framework detection
+  --auth-state <file> Use saved authentication state (from auth-helper.js)
   --theme <name>      Filter by theme (accessibilite, seo, securite, etc.)
   --rubrique <n>      Filter by rubrique (formulaires, navigation, etc.)
   --help, -h          Show this help
 
+Authentication (for protected pages):
+  1. node scripts/auth-helper.js https://example.com/login
+  2. Login in browser, close when done
+  3. node scripts/bridge.js https://example.com/protected --auth-state .opquast-auth.json
+
 Examples:
   node scripts/bridge.js https://example.com
   node scripts/bridge.js https://example.com --json
+  node scripts/bridge.js https://example.com --format html --output report.html
+  node scripts/bridge.js https://example.com --format pdf --output report.pdf
   node scripts/bridge.js https://example.com --theme accessibilite
+  node scripts/bridge.js https://protected.com/dashboard --auth-state .opquast-auth.json
 `);
     process.exit(0);
   }
@@ -331,15 +345,17 @@ Examples:
     const domInfo = getAnalyzerInfo();
     const validatorInfo = getValidatorInfo();
     const spaInfo = getSPADetectorInfo();
+    const exporterInfo = getExporterInfo();
     console.log(JSON.stringify({
       bridge: {
         name: 'Opquast Bridge',
-        version: '1.2.0',
-        capabilities: ['dom-analysis', 'static-heuristics', 'spa-detection', 'unified-report']
+        version: '1.3.0',
+        capabilities: ['dom-analysis', 'static-heuristics', 'spa-detection', 'unified-report', 'html-export', 'pdf-export']
       },
       domAnalyzer: domInfo,
       staticValidators: validatorInfo,
-      spaDetector: spaInfo
+      spaDetector: spaInfo,
+      exporters: exporterInfo
     }, null, 2));
     process.exit(0);
   }
@@ -349,7 +365,8 @@ Examples:
     domOnly: args.includes('--dom-only'),
     spaDetection: !args.includes('--no-spa-detection'),
     theme: null,
-    rubrique: null
+    rubrique: null,
+    storageState: null
   };
 
   const themeIdx = args.indexOf('--theme');
@@ -362,12 +379,68 @@ Examples:
     options.rubrique = args[rubriqueIdx + 1];
   }
 
+  // Parse auth-state option
+  const authStateIdx = args.indexOf('--auth-state');
+  if (authStateIdx !== -1 && args[authStateIdx + 1]) {
+    const authStateFile = args[authStateIdx + 1];
+    try {
+      const authData = JSON.parse(await readFile(authStateFile, 'utf-8'));
+      options.storageState = authData.storageState || authData;
+      console.error(`[Bridge] Using authentication state from: ${authStateFile}`);
+    } catch (err) {
+      console.error(`[Bridge] Error loading auth state: ${err.message}`);
+      console.error(`[Bridge] Run: node scripts/auth-helper.js <login-url> to create auth state`);
+      process.exit(1);
+    }
+  }
+
+  // Parse format option (default: text)
+  let format = 'text';
+  const formatIdx = args.indexOf('--format');
+  if (formatIdx !== -1 && args[formatIdx + 1]) {
+    format = args[formatIdx + 1].toLowerCase();
+    if (!SUPPORTED_FORMATS.includes(format)) {
+      console.error(`Error: Unsupported format '${format}'. Supported: ${SUPPORTED_FORMATS.join(', ')}`);
+      process.exit(1);
+    }
+  } else if (args.includes('--json')) {
+    format = 'json';
+  }
+
+  // Parse output file option
+  let outputFile = null;
+  const outputIdx = args.indexOf('--output');
+  if (outputIdx !== -1 && args[outputIdx + 1]) {
+    outputFile = args[outputIdx + 1];
+  }
+
+  // Run analysis
   const results = await runUnifiedAnalysis(url, options);
 
-  if (args.includes('--json')) {
-    console.log(JSON.stringify(results, null, 2));
-  } else {
-    formatResults(results);
+  // Export based on format
+  try {
+    const exported = await exportResults(results, format);
+
+    if (outputFile) {
+      // Write to file
+      if (format === 'pdf') {
+        await writeFile(outputFile, exported);
+      } else {
+        await writeFile(outputFile, exported, 'utf8');
+      }
+      console.error(`Report saved to: ${outputFile}`);
+    } else {
+      // Write to stdout
+      if (format === 'pdf') {
+        // PDF cannot be written to stdout as text
+        console.error('Error: PDF format requires --output <file>');
+        process.exit(1);
+      }
+      console.log(exported);
+    }
+  } catch (exportError) {
+    console.error(`Export error: ${exportError.message}`);
+    process.exit(1);
   }
 
   process.exit(results.summary.violations.length > 0 ? 1 : 0);

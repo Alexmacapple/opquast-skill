@@ -1,3 +1,5 @@
+<!-- Skill Opquast pour Claude Code - Analyseur de qualité web -->
+
 # Opquast Skill pour Claude Code
 
 > Analyseur de qualité web basé sur le référentiel Opquast V5 (245 règles)
