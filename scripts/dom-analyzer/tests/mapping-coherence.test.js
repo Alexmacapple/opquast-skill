@@ -12,6 +12,7 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { AXE_TO_OPQUAST, CUSTOM_CHECKS } from '../utils/opquast-mapper.js';
+import { checkMappingCoherence } from '../utils/mapping-coherence.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,28 +55,10 @@ describe('Mapping Coherence', () => {
       expect(invalidIds).toEqual([]);
     });
 
-    it('should have titles strictly equal to the Opquast reference titles', () => {
-      // Audit ShipGuard 2026-09-03 (r1-z03-006, r1-z04-001) : un seul mot commun laissait passer 13 titres faux
-      const mismatches = [];
-      Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
-        const opquastRule = rulesById[mapping.opquastId];
-        if (!opquastRule) return;
-        if (mapping.title !== opquastRule.title) {
-          mismatches.push({ axeRule, opquastId: mapping.opquastId, mapperTitle: mapping.title, jsonTitle: opquastRule.title });
-        }
-      });
-      expect(mismatches).toEqual([]);
-    });
-
-    it('should have severities equal to the Opquast reference severities', () => {
-      const mismatches = [];
-      Object.entries(AXE_TO_OPQUAST).forEach(([axeRule, mapping]) => {
-        const opquastRule = rulesById[mapping.opquastId];
-        if (opquastRule && mapping.severity !== opquastRule.severity) {
-          mismatches.push({ axeRule, opquastId: mapping.opquastId, mapper: mapping.severity, json: opquastRule.severity });
-        }
-      });
-      expect(mismatches).toEqual([]);
+    it('should have titles and severities strictly equal to the Opquast reference (module partagé, r1-z04-053)', () => {
+      const { checked, issues } = checkMappingCoherence(rulesById);
+      expect(checked).toBe(Object.keys(AXE_TO_OPQUAST).length + Object.keys(CUSTOM_CHECKS).length);
+      expect(issues).toEqual([]);
     });
 
     it('should have valid severity values', () => {
@@ -108,18 +91,6 @@ describe('Mapping Coherence', () => {
       });
 
       expect(invalidIds).toEqual([]);
-    });
-
-    it('should have titles and severities equal to the Opquast reference', () => {
-      const mismatches = [];
-      Object.entries(CUSTOM_CHECKS).forEach(([opquastId, check]) => {
-        const rule = rulesById[Number(opquastId)];
-        if (!rule) return;
-        if (check.title !== rule.title || check.severity !== rule.severity) {
-          mismatches.push({ opquastId, title: check.title, jsonTitle: rule.title, severity: check.severity, jsonSeverity: rule.severity });
-        }
-      });
-      expect(mismatches).toEqual([]);
     });
 
     it('should have valid check types', () => {

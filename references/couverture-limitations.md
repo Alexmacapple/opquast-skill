@@ -25,4 +25,4 @@ Pour les SPAs, demander a l'utilisateur de fournir le HTML rendu (via DevTools >
 
 ## Installation du DOM Analyzer
 
-`cd scripts/dom-analyzer && npm install --ignore-scripts && npx playwright install chromium`. Sans cette installation, `scripts/bridge.js` echoue en code 2 et le skill continue sans analyse DOM en le signalant ; il ne doit jamais presenter la couverture DOM comme acquise dans ce cas.
+`bash install.sh --dom` (npm ci verrouille dans les deux analyseurs, puis Chromium pour Playwright). Diagnostic : `python3 scripts/doctor.py`. Sans cette installation, `scripts/bridge.js` echoue en code 2 et le skill continue sans analyse DOM en le signalant ; il ne doit jamais presenter la couverture DOM comme acquise dans ce cas.

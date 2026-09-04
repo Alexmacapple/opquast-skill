@@ -1,0 +1,72 @@
+# Intégration continue du skill Opquast (audit ShipGuard 2026-09-03, r1-z05-016).
+# À chaque push et pull request : tests JavaScript (avec Chromium) et Python, validation du schéma,
+# cohérence des mappings. Chaque lundi et à la demande : contrôle de dérive du fichier de règles
+# contre l'API publique Opquast (aucune clé requise).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dépendances JavaScript (verrouillées, sans scripts d'installation)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix scripts/dom-analyzer
+          npm ci --ignore-scripts --no-audit --no-fund --prefix scripts/static-analyzer
+
+      - name: Chromium pour Playwright
+        run: npx --prefix scripts/dom-analyzer playwright install --with-deps chromium
+
+      - name: Dépendances Python
+        run: python3 -m pip install --quiet jsonschema pytest
+
+      - name: Validation du schéma et des profils
+        run: python3 scripts/validate.py
+
+      - name: Cohérence des mappings avec le référentiel
+        run: node scripts/audit-mappings.js
+
+      - name: Tests Python des scripts
+        run: python3 -m pytest scripts/tests -q
+
+      - name: Tests static-analyzer (avec seuils de couverture)
+        run: npm test --prefix scripts/static-analyzer -- --coverage
+
+      - name: Tests dom-analyzer (avec seuils de couverture)
+        run: npm test --prefix scripts/dom-analyzer -- --coverage
+
+  derive-referentiel:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Contrôle de dérive contre l'API publique Opquast
+        run: python3 scripts/sync-rules-from-api.py --check

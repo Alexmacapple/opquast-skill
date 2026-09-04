@@ -47,6 +47,20 @@ case "$SCRIPT_DIR" in
         ;;
 esac
 
+# Option --dom : installe seulement les dépendances de l'analyse DOM (npm ci + Chromium), sans installer le skill
+if [ "${1:-}" = "--dom" ]; then
+    echo -e "${BLUE}Installation des dépendances de l'analyse DOM...${NC}"
+    command -v node >/dev/null 2>&1 || { echo -e "${RED}Node.js est requis (18 minimum).${NC}"; exit 1; }
+    for pkg in dom-analyzer static-analyzer; do
+        echo "  npm ci dans scripts/$pkg (lockfile, sans scripts d'installation)"
+        (cd "$SCRIPT_DIR/scripts/$pkg" && npm ci --ignore-scripts --no-audit --no-fund)
+    done
+    echo "  Chromium pour Playwright"
+    (cd "$SCRIPT_DIR/scripts/dom-analyzer" && npx playwright install chromium)
+    echo -e "${GREEN}✓ Analyse DOM prête. Diagnostic complet : python3 scripts/doctor.py${NC}"
+    exit 0
+fi
+
 # Vérifier que le script est lancé depuis le bon répertoire
 if [ ! -f "$SCRIPT_DIR/SKILL.md" ]; then
     echo -e "${RED}Erreur: SKILL.md non trouvé.${NC}"

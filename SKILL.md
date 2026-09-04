@@ -167,6 +167,8 @@ Source de référence des corps de règles (`objectives`, `solution`, `verificat
 
 Tests : `python3 -m pytest scripts/tests -q` ; `cd scripts/dom-analyzer && npm test` ; `cd scripts/static-analyzer && npm test` ; `cd scripts && npm run audit:mappings`.
 
+Installation sur une nouvelle machine : `bash install.sh --dom` (dépendances verrouillées des deux analyseurs et Chromium), puis la clé API par `printf '%s' "$CLE" | python3 ~/Claude/MCP/opquast-mcp/find_key.py --set`. Diagnostic à tout moment : `python3 scripts/doctor.py` (Node, dépendances, Chromium, Python, venv et clé du MCP, accès API, dérive du référentiel). L'intégration continue GitHub (`.github/workflows/ci.yml`) rejoue les tests à chaque push et contrôle la dérive chaque lundi.
+
 ## Intelligence contextuelle
 
 Lors de l'analyse, détecter automatiquement le profil du site via `rules/site-profiles.json` :
