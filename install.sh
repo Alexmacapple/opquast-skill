@@ -20,7 +20,7 @@ if [ -z "${HOME:-}" ] || [ ! -d "$HOME" ]; then
     exit 1
 fi
 SKILLS_DIR="$HOME/.claude/skills"
-SKILL_NAME="opquast"
+SKILL_NAME="opquast-skill"
 
 # Fichiers et répertoires livrés par l'installation en mode copie (r1-z02-055).
 # Exclus volontairement : .git, .gitignore, conductor/, deliberations/, docs/,
@@ -31,21 +31,6 @@ echo -e "${BLUE}╔════════════════════�
 echo -e "${BLUE}║  Opquast Skill - Installation              ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════╝${NC}"
 echo ""
-
-# Le skill est déjà enregistré s'il vit sous un répertoire .claude/skills :
-# l'installer une seconde fois créerait deux skills nommés « opquast » et
-# rendrait la résolution indéterminée côté Claude Code.
-case "$SCRIPT_DIR" in
-    */.claude/skills/*)
-        echo -e "${YELLOW}Source déjà enregistrée comme skill : $SCRIPT_DIR${NC}"
-        echo "Installer une copie dans $SKILLS_DIR/$SKILL_NAME créerait un second skill nommé « $SKILL_NAME »."
-        if [ "${OPQUAST_INSTALL_FORCE:-0}" != "1" ]; then
-            echo "Installation annulée. Forcer avec OPQUAST_INSTALL_FORCE=1 si le doublon est voulu."
-            exit 1
-        fi
-        echo -e "${YELLOW}OPQUAST_INSTALL_FORCE=1 : poursuite malgré le doublon.${NC}"
-        ;;
-esac
 
 # Option --dom : installe seulement les dépendances de l'analyse DOM (npm ci + Chromium), sans installer le skill
 if [ "${1:-}" = "--dom" ]; then
@@ -60,6 +45,23 @@ if [ "${1:-}" = "--dom" ]; then
     echo -e "${GREEN}✓ Analyse DOM prête. Diagnostic complet : python3 scripts/doctor.py${NC}"
     exit 0
 fi
+
+# Le skill est déjà enregistré s'il vit sous un répertoire .claude/skills :
+# l'installer une seconde fois créerait deux dossiers de même nom sous deux
+# répertoires de skills et rendrait la résolution indéterminée côté Claude Code.
+# L'option --dom est traitée plus haut : elle n'installe aucun skill et reste
+# donc utilisable depuis une source déjà enregistrée.
+case "$SCRIPT_DIR" in
+    */.claude/skills/*)
+        echo -e "${YELLOW}Source déjà enregistrée comme skill : $SCRIPT_DIR${NC}"
+        echo "Installer une copie dans $SKILLS_DIR/$SKILL_NAME créerait un second skill nommé « $SKILL_NAME »."
+        if [ "${OPQUAST_INSTALL_FORCE:-0}" != "1" ]; then
+            echo "Installation annulée. Forcer avec OPQUAST_INSTALL_FORCE=1 si le doublon est voulu."
+            exit 1
+        fi
+        echo -e "${YELLOW}OPQUAST_INSTALL_FORCE=1 : poursuite malgré le doublon.${NC}"
+        ;;
+esac
 
 # Vérifier que le script est lancé depuis le bon répertoire
 if [ ! -f "$SCRIPT_DIR/SKILL.md" ]; then

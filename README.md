@@ -63,10 +63,10 @@ git clone https://github.com/your-username/opquast-skill.git
 mkdir -p ~/.claude/skills
 
 # Créer un lien symbolique
-ln -s "$(pwd)/opquast-skill" ~/.claude/skills/opquast
+ln -s "$(pwd)/opquast-skill" ~/.claude/skills/opquast-skill
 
 # Vérifier l'installation
-ls -la ~/.claude/skills/opquast
+ls -la ~/.claude/skills/opquast-skill
 ```
 
 ### Vérification
@@ -74,7 +74,7 @@ ls -la ~/.claude/skills/opquast
 Lancer Claude Code et tester :
 
 ```
-/opquast --regle 1
+/opquast-skill --regle 1
 ```
 
 ---
@@ -85,10 +85,10 @@ Lancer Claude Code et tester :
 
 | Commande | Action |
 |----------|--------|
-| `/opquast <URL>` | Analyse complète |
-| `/opquast <URL> --theme accessibilite` | Par thématique |
-| `/opquast <URL> --rubrique formulaires` | Par rubrique |
-| `/opquast --regle 42` | Consulter une règle |
+| `/opquast-skill <URL>` | Analyse complète |
+| `/opquast-skill <URL> --theme accessibilite` | Par thématique |
+| `/opquast-skill <URL> --rubrique formulaires` | Par rubrique |
+| `/opquast-skill --regle 42` | Consulter une règle |
 
 ### Thématiques disponibles
 
@@ -102,16 +102,16 @@ Lancer Claude Code et tester :
 
 ```bash
 # Audit complet d'un site
-/opquast https://example.com
+/opquast-skill https://example.com
 
 # Focus accessibilité
-/opquast https://example.com --theme accessibilite
+/opquast-skill https://example.com --theme accessibilite
 
 # Focus formulaires pour un SaaS
-/opquast https://app.example.com --rubrique formulaires
+/opquast-skill https://app.example.com --rubrique formulaires
 
 # Consulter une règle spécifique
-/opquast --regle 182
+/opquast-skill --regle 182
 ```
 
 ---
@@ -222,12 +222,12 @@ python3 scripts/validate.py  # Vérifier après modification
 
 | Phase | Statut | Description |
 |-------|--------|-------------|
-| 0 | ✅ | Audit de couverture |
-| 1 | ✅ | JSON enrichi, schémas |
-| 2 | ✅ | Intelligence contextuelle |
-| 3 | 📄 | Analyse DOM (Puppeteer) |
-| 4 | 📄 | CI/CD, Council, historique |
-| 5 | 📄 | Multi-standards, batch, auto-fix |
+| 0 | Fait | Audit de couverture |
+| 1 | Fait | JSON enrichi, schémas |
+| 2 | Fait | Intelligence contextuelle |
+| 3 | Fait | Analyse DOM (Playwright) |
+| 4 | Planifié | Export CI/CD, Council, historique d'audits |
+| 5 | Planifié | Multi-standards, batch, auto-fix |
 
 Voir le dossier `docs/` pour les spécifications détaillées.
 

@@ -1,12 +1,12 @@
 ---
-name: opquast
+name: opquast-skill
 description: |
   Analyseur de qualité web basé sur le référentiel Opquast V5 (245 règles).
   Expert certifié pour auditer les sites selon les bonnes pratiques qualité.
 
   INVOKE THIS SKILL when user wants:
   - Audit qualité: "analyse opquast", "audit qualité web", "check opquast"
-  - Analyse URL: "/opquast https://...", "vérifie ce site", "analyse cette page"
+  - Analyse URL: "/opquast-skill https://...", "vérifie ce site", "analyse cette page"
   - Par thématique: "qualité accessibilité opquast", "audit SEO opquast", "check sécurité opquast"
   - Par rubrique: "vérifie les formulaires", "analyse e-commerce", "audit navigation"
   - Consulter règle: "règle opquast 42", "montre la règle 125", "détail règle"
@@ -39,13 +39,13 @@ Parser `$ARGUMENTS` pour extraire :
 
 | Pattern | Action | Exemple |
 |---------|--------|---------|
-| URL seule | Analyse complète | `/opquast https://example.com` |
-| URL + `--theme <t>` | Analyse par thématique | `/opquast https://example.com --theme seo` |
-| URL + `--rubrique <r>` | Analyse par rubrique | `/opquast https://example.com --rubrique formulaires` |
-| `--regle <N>` | Consulter une règle | `/opquast --regle 42` |
-| `--list [--page N]` | Liste paginée | `/opquast --list --page 3` |
-| `--search <mot>` | Recherche par mot-clé dans le titre des règles | `/opquast --search image` |
-| `--severity <s>` | Filtrer par sévérité | `/opquast --severity critical` |
+| URL seule | Analyse complète | `/opquast-skill https://example.com` |
+| URL + `--theme <t>` | Analyse par thématique | `/opquast-skill https://example.com --theme seo` |
+| URL + `--rubrique <r>` | Analyse par rubrique | `/opquast-skill https://example.com --rubrique formulaires` |
+| `--regle <N>` | Consulter une règle | `/opquast-skill --regle 42` |
+| `--list [--page N]` | Liste paginée | `/opquast-skill --list --page 3` |
+| `--search <mot>` | Recherche par mot-clé dans le titre des règles | `/opquast-skill --search image` |
+| `--severity <s>` | Filtrer par sévérité | `/opquast-skill --severity critical` |
 
 Valeurs acceptées : voir `references/rubriques-dimensions.md`
 
@@ -196,10 +196,10 @@ Template complet, ordre de priorité et exemple condensé : voir `references/for
 
 Structure du rapport : Couverture -> Quick Wins -> Non-conformités par priorité (Accessibilité > SEO > UX) -> Règles non vérifiables (DOM).
 
-### Exemple `/opquast <URL>` (condensé)
+### Exemple `/opquast-skill <URL>` (condensé)
 
 ```
-/opquast https://boutique.example.com
+/opquast-skill https://boutique.example.com
 
 # Analyse Opquast : Boutique Example
 **Profil** : e-commerce | **Non conformes** : 14 | **DOM** : 33 non vérifiables
@@ -208,10 +208,10 @@ Quick Wins : règle 191 (justify), 237 (user-select) | Accessibilité : règle 1
 
 Rapport complet et template : voir `references/format-sortie.md`
 
-### Exemple `/opquast --regle`
+### Exemple `/opquast-skill --regle`
 
 ```
-/opquast --regle 69
+/opquast-skill --regle 69
 
 # Règle 69 : Chaque champ de formulaire est associé dans le code source à une étiquette qui lui est propre.
 **Rubrique** : Formulaires | **Sévérité** : critical | **Tags** : Basics, Accessibilité | **Phases** : Développement
@@ -219,10 +219,10 @@ Rapport complet et template : voir `references/format-sortie.md`
 → https://checklists.opquast.com/fr/qualite-numerique/69
 ```
 
-### Exemple `/opquast --search`
+### Exemple `/opquast-skill --search`
 
 ```
-/opquast --search formulaire
+/opquast-skill --search formulaire
 
 # 15 règles dont le titre contient « formulaire »
 | ID | Titre | Sévérité |
@@ -231,10 +231,10 @@ Rapport complet et template : voir `references/format-sortie.md`
 | 71 | L'étiquette de chaque champ de formulaire indique si la saisie est obligatoire. | critical |
 ```
 
-### Exemple `/opquast --theme`
+### Exemple `/opquast-skill --theme`
 
 ```
-/opquast https://example.com --theme seo
+/opquast-skill https://example.com --theme seo
 
 # Analyse Opquast : Example — SEO (37 règles)
 **Non conformes** : 5 | Règle 3 : métadonnée de description absente | Règle 103 : titre de page non identifiant
