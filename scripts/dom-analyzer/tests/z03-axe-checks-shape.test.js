@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { INTERACTION_CHECKS } from '../checks/interaction-checks.js';
 import { launchBrowser, createContext, closeBrowser } from '../utils/browser.js';
 import {
   runAxeAnalysis,
@@ -79,8 +80,10 @@ describe('checks/axe-checks.js', () => {
     expect(withoutCustom.stats.opquastRuleIds.sort((a, b) => a - b)).toEqual([...axeOpquastIds].sort((a, b) => a - b));
     expect(withoutCustom.stats.totalRulesChecked).toBeGreaterThan(0);
 
-    // Avec les checks custom, la couverture est celle de l'analyseur complet
-    expect(withCustom.stats.totalRulesChecked).toBe(getSupportedOpquastRules().length);
+    // Avec les checks custom, la couverture est celle de l'analyseur complet : axe, custom et checks d'interaction (PRD-004)
+    const fullCoverage = new Set([...getSupportedOpquastRules(), ...Object.keys(INTERACTION_CHECKS).map(Number)]);
+    expect(withCustom.stats.totalRulesChecked).toBe(fullCoverage.size);
+    expect(withCustom.stats.interactionChecksRun).toBe(Object.keys(INTERACTION_CHECKS).length);
   });
 
   it('checkOpquastRule exécute toutes les règles axe d\'un identifiant et signale l\'absence de mapping', async () => {

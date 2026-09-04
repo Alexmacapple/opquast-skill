@@ -403,9 +403,15 @@ describe('Edge cases', () => {
 });
 
 // PRD-002: Confidence Scoring Tests
+// PRD-004: Added 'interaction' level
 describe('CONFIDENCE_LEVELS', () => {
-  it('should define 5 confidence levels', () => {
-    expect(Object.keys(CONFIDENCE_LEVELS)).toHaveLength(5);
+  it('should define 6 confidence levels', () => {
+    expect(Object.keys(CONFIDENCE_LEVELS)).toHaveLength(6);
+  });
+
+  it('should have interaction with 0.80 confidence', () => {
+    expect(CONFIDENCE_LEVELS['interaction'].confidence).toBe(0.80);
+    expect(CONFIDENCE_LEVELS['interaction'].label).toBe('interaction');
   });
 
   it('should have axe-core with 1.0 confidence', () => {

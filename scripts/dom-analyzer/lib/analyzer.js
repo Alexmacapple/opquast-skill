@@ -94,6 +94,7 @@ function buildErrorResult(url, error) {
  * @param {boolean} options.includeCustomChecks - Run custom Playwright checks (default: true)
  * @param {number[]} options.rules - Opquast rule IDs used to FILTER the reported violations (tous les contrôles sont exécutés, r1-z03-019)
  * @param {boolean} options.keepBrowserOpen - Don't close browser after analysis (for batch)
+ * @param {Object} options.storageState - Playwright storage state for authentication
  * @returns {Promise<Object>} Analysis results
  */
 export async function analyze(url, options = {}) {
@@ -101,7 +102,8 @@ export async function analyze(url, options = {}) {
     includeWarnings = false,
     includeCustomChecks = true,
     rules = null,
-    keepBrowserOpen = false
+    keepBrowserOpen = false,
+    storageState = null
   } = options;
 
   assertHttpUrl(url);
@@ -110,9 +112,10 @@ export async function analyze(url, options = {}) {
   let page = null;
 
   try {
-    // Launch browser and create context
+    // Launch browser and create context (with optional auth state)
     await launchBrowser();
-    context = await createContext();
+    const contextOptions = storageState ? { storageState } : {};
+    context = await createContext(contextOptions);
     page = await context.newPage();
 
     // Navigate to URL

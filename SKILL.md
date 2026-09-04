@@ -73,7 +73,44 @@ Valeurs acceptées : voir `references/rubriques-dimensions.md`
 
 ## Couverture
 
-166/245 règles (68 %) : 160 règles `static` évaluées par le modèle après WebFetch, plus 6 règles `requires_dom` automatisées par le DOM Analyzer (qui couvre 23 règles Opquast distinctes, dont 17 règles static vérifiées de façon déterministe par axe-core). Détails et limitations SPA : voir `references/couverture-limitations.md`
+```bash
+node scripts/bridge.js https://example.com
+# Output: DOM violations + guidance pour règles static
+```
+
+184/245 règles (75 %) : 160 règles `static` évaluées par le modèle après WebFetch, plus 20 règles `requires_dom` et 4 règles `requires_interaction` automatisées par le DOM Analyzer (qui couvre 41 règles Opquast distinctes : 23 par axe-core et checks custom, 18 par les checks d'interaction, dont 17 règles static vérifiées de façon déterministe). Détails et limitations SPA : voir `references/couverture-limitations.md`
+
+### Détection automatique des applications monopages
+
+
+Le skill détecte automatiquement **11 frameworks SPA/SSR** avant analyse:
+
+| Framework | Signatures | Type |
+|-----------|------------|------|
+| React/Next.js | `#root`, `#__next`, `__NEXT_DATA__` | SPA / SSR hybride |
+| Vue/Nuxt | `#app`, `#__nuxt`, `__NUXT__` | SPA / SSR hybride |
+| Angular | `app-root`, `ng-version` | SPA |
+| Svelte | `class*="svelte-"` | SPA |
+| Solid.js | `data-hk`, `_$HY` | SPA |
+| Qwik | `q:container` | Resumable |
+| Alpine.js | `x-data`, `x-init` | Lightweight |
+| HTMX | `hx-get`, `hx-post` | Lightweight |
+| Ember | `data-ember` | SPA |
+| Lit | Web Components | SPA |
+| Preact | similaire React | SPA |
+
+**Comportement selon type détecté:**
+
+| Type | Recommendation | Analyse statique |
+|------|----------------|------------------|
+| SSR hybride (Next/Nuxt) | Warning | Exécutée (valide) |
+| Lightweight (Alpine/HTMX) | Full analysis | Exécutée |
+| SPA pure (React/Vue/Angular) | DOM preferred | Exécutée + warning |
+| Site classique | - | Exécutée |
+
+**Important**: L'analyse statique n'est **jamais** skippée. Les SPAs génèrent des warnings mais les résultats restent disponibles.
+
+**Option CLI**: `--no-spa-detection` pour désactiver la détection
 
 ## Ressources
 
